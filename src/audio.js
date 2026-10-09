@@ -14,6 +14,8 @@ let startAt = 0;
 let nextBarToSchedule = 0;
 let timer = null;
 let playing = false;
+let songBus = null; // BGMだけをまとめる音量つまみ。曲をとめるときに、まるごと切りはなす
+let sources = []; // 予約したBGMの音。曲をとめるときに、ぜんぶ止める
 
 let offsetMs = 0;
 
@@ -54,11 +56,15 @@ export function isMuted() {
 
 export function setMuted(value) {
   muted = value;
-  if (master) master.gain.setTargetAtTime(muted ? 0 : 0.5, ctx.currentTime, 0.02);
+  if (master) {
+    // すぐに、きっぱり0(または元の大きさ)にする
+    master.gain.cancelScheduledValues(ctx.currentTime);
+    master.gain.setValueAtTime(muted ? 0 : 0.5, ctx.currentTime);
+  }
   saveSettings();
 }
 
-function tone(freq, when, length, { type = "square", volume = 0.15, to = null } = {}) {
+function tone(freq, when, length, { type = "square", volume = 0.15, to = null, bus = null } = {}) {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = type;
@@ -66,12 +72,13 @@ function tone(freq, when, length, { type = "square", volume = 0.15, to = null } 
   if (to) osc.frequency.exponentialRampToValueAtTime(to, when + length);
   gain.gain.setValueAtTime(volume, when);
   gain.gain.exponentialRampToValueAtTime(0.0001, when + length);
-  osc.connect(gain).connect(master);
+  osc.connect(gain).connect(bus ?? master);
+  if (bus) sources.push(osc);
   osc.start(when);
   osc.stop(when + length + 0.02);
 }
 
-function hiss(when, length, { volume = 0.1, freq = 7000 } = {}) {
+function hiss(when, length, { volume = 0.1, freq = 7000, bus = null } = {}) {
   const src = ctx.createBufferSource();
   const filter = ctx.createBiquadFilter();
   const gain = ctx.createGain();
@@ -80,7 +87,8 @@ function hiss(when, length, { volume = 0.1, freq = 7000 } = {}) {
   filter.frequency.value = freq;
   gain.gain.setValueAtTime(volume, when);
   gain.gain.exponentialRampToValueAtTime(0.0001, when + length);
-  src.connect(filter).connect(gain).connect(master);
+  src.connect(filter).connect(gain).connect(bus ?? master);
+  if (bus) sources.push(src);
   src.start(when);
   src.stop(when + length + 0.02);
 }
@@ -102,14 +110,14 @@ function scheduleBar(bar) {
   const root = ROOTS[bar % 4];
   for (let b = 0; b < 4; b += 1) {
     const t = t0 + b * BEAT;
-    tone(120, t, 0.2, { type: "sine", volume: 0.9, to: 42 }); // キック(拍の頭がはっきりわかるように、大きめ)
-    if (b % 2 === 1) hiss(t, 0.14, { volume: 0.3, freq: 2000 }); // スネア
+    tone(120, t, 0.2, { type: "sine", volume: 0.9, to: 42, bus: songBus }); // キック(拍の頭がはっきりわかるように、大きめ)
+    if (b % 2 === 1) hiss(t, 0.14, { volume: 0.3, freq: 2000, bus: songBus }); // スネア
   }
   for (let e = 0; e < 8; e += 1) {
     const t = t0 + e * (BEAT / 2);
-    hiss(t, 0.04, { volume: e % 2 ? 0.1 : 0.05 }); // ハイハット
-    tone(midi(root - 12 + (e % 4 === 2 ? 12 : 0)), t, BEAT / 2 - 0.03, { type: "triangle", volume: 0.3 }); // ベース
-    tone(midi(root + 12 + MELODY[bar % 4][e]), t, BEAT / 2 - 0.05, { type: "square", volume: 0.03 }); // メロディ(拍をじゃましないよう、小さめ)
+    hiss(t, 0.04, { volume: e % 2 ? 0.1 : 0.05, bus: songBus }); // ハイハット
+    tone(midi(root - 12 + (e % 4 === 2 ? 12 : 0)), t, BEAT / 2 - 0.03, { type: "triangle", volume: 0.3, bus: songBus }); // ベース
+    tone(midi(root + 12 + MELODY[bar % 4][e]), t, BEAT / 2 - 0.05, { type: "square", volume: 0.03, bus: songBus }); // メロディ(拍をじゃましないよう、小さめ)
   }
 }
 
@@ -125,6 +133,8 @@ function pump() {
 export function startSong() {
   if (!ctx) return;
   stopSong();
+  songBus = ctx.createGain();
+  songBus.connect(master);
   startAt = ctx.currentTime + 0.15;
   haveDrift = false;
   nextBarToSchedule = 0;
@@ -137,13 +147,24 @@ export function stopSong() {
   playing = false;
   clearInterval(timer);
   timer = null;
-  if (master) {
-    // 予約済みの音を止めるため、つなぎなおす。
-    master.disconnect();
-    master = ctx.createGain();
-    master.gain.value = muted ? 0 : 0.5;
-    master.connect(ctx.destination);
+  // 予約ずみの音を、ぜんぶ止めて、BGMのつなぎも切る(これで、ゲームが終わったあとに鳴り続けることはない)
+  for (const source of sources) {
+    try {
+      source.stop();
+    } catch {
+      // もう止まっているものは、そのまま。
+    }
   }
+  sources = [];
+  if (songBus) {
+    songBus.disconnect();
+    songBus = null;
+  }
+}
+
+// いま鳴る予定の音の数(動作確認用)
+export function activeSources() {
+  return sources.length;
 }
 
 // 曲の頭からの秒数。耳に聞こえる音に合わせる。

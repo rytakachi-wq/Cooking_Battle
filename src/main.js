@@ -18,17 +18,17 @@ import {
   registerHit,
   registerMiss,
 } from "./game.js";
-import { getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
+import { activeSources, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { ENEMY_FX, STATION, drawStation } from "./station.js";
 import { loadStats, recordPlay } from "./storage.js";
 
 const W = 960;
 const H = 540;
-const HIT_X = 190; // 矢印をおす位置
+const HIT_X = 300; // 矢印をおす位置(主人公と敵のあいだ。キャラクターを見たまま、矢印も目に入る)
 const SPEED = 420; // 矢印が流れる速さ(ピクセル/秒)。ゆっくりめにして、目の動きを小さくする
-const FADE_IN = 150; // 矢印が出てくるとき、右はしでふわっと現れるはば(ピクセル)
+const FADE_IN = 90; // 矢印が出てくるとき、右はしでふわっと現れるはば(ピクセル)
 const LUNGE = 110; // 主人公が、こうげきで前に出る大きさ
-const LANE_Y = 462;
+const LANE_Y = 222; // 矢印が流れる高さ(キャラクターの頭のあたり)
 const LOOKAHEAD = 2.6; // 何秒さきまで、矢印を作っておくか
 
 const $ = (id) => document.getElementById(id);
@@ -62,12 +62,23 @@ function show(name) {
   for (const [key, el] of Object.entries(screens)) el.hidden = key !== name;
 }
 
+function showMute() {
+  $("btn-mute").textContent = isMuted() ? "おと：なし" : "おと：あり";
+  $("btn-mute-play").textContent = `${isMuted() ? "おと：なし" : "おと：あり"} (M)`;
+}
+
+function toggleMute() {
+  unlock();
+  setMuted(!isMuted());
+  showMute();
+}
+
 function showCover() {
   const stats = loadStats();
   $("best").textContent = stats.plays
     ? `さいこうとくてん ${stats.bestScore}　クリア ${stats.wins}回${stats.bestRank ? `　さいこうランク ${stats.bestRank}` : ""}`
     : "";
-  $("btn-mute").textContent = isMuted() ? "おと：なし" : "おと：あり";
+  showMute();
   show("cover");
 }
 
@@ -114,7 +125,7 @@ function quitToCover() {
   showCover();
 }
 
-function popup(text, color, now, x = HIT_X + 20, y = LANE_Y - 70) {
+function popup(text, color, now, x = HIT_X, y = LANE_Y - 52) {
   run.popups.push({ text, color, x, y, from: now });
 }
 
@@ -501,21 +512,26 @@ function draw(now) {
   g.fillStyle = "#4a2c17";
   g.fillText(`${s.enemyIndex + 1} / ${ENEMIES.length}`, W - 24, 82);
 
-  // レーン:ひとつの落ち着いた色。矢印は、右はしでふわっと現れる
-  g.fillStyle = "#4a2a14";
-  g.fillRect(0, LANE_Y - 52, W, 104);
-  g.fillStyle = "rgba(255,255,255,0.14)";
-  g.fillRect(0, LANE_Y - 52, W, 2);
-  g.fillRect(0, LANE_Y + 50, W, 2);
+  // レーン:敵のほうから主人公のほうへ、矢印が流れる。キャラクターのすぐ近くなので、目を大きく動かさなくてよい
+  g.fillStyle = "rgba(74,42,20,0.82)";
+  roundRect(HIT_X - 56, LANE_Y - 40, 470, 80, 40);
+  g.fill();
+  const pressedNow = Object.entries(r.pressed).find(([, at]) => now - at < 0.12);
   g.save();
-  g.strokeStyle = `rgba(255,255,255,${0.75 + (1 - beatPhase) * 0.25})`;
+  g.strokeStyle = pressedNow ? "#ffe066" : `rgba(255,255,255,${0.75 + (1 - beatPhase) * 0.25})`;
   g.lineWidth = 5;
   g.setLineDash([10, 8]);
   roundRect(HIT_X - 36, LANE_Y - 36, 72, 72, 16);
   g.stroke();
   g.restore();
+  if (pressedNow) {
+    // おしたキーを、枠の中にうすく出す
+    g.globalAlpha = 0.6;
+    outlined(ARROW_GLYPH[pressedNow[0]], HIT_X, LANE_Y + 14, 44, "#ffe066");
+    g.globalAlpha = 1;
+  }
 
-  const lastX = HIT_X + 600; // これより右の矢印は、まだ見せない
+  const lastX = HIT_X + 410; // これより右の矢印は、まだ見せない
   for (const note of r.notes) {
     const x = HIT_X + (note.time - now) * SPEED;
     if (note.status === "hit") {
@@ -523,17 +539,11 @@ function draw(now) {
       if (t < 0.2) drawArrowBox(note.key, HIT_X, LANE_Y, 56 + t * 160, 1 - t / 0.2);
       continue;
     }
-    if (x > lastX) continue;
+    if (x > lastX || x < HIT_X - 50) continue;
     const fade = Math.min(1, (lastX - x) / FADE_IN);
     if (note.status === "miss") drawArrowBox(note.key, x, LANE_Y, 56, 0.3 * fade);
     else if (note.status === "pending") drawArrowBox(note.key, x, LANE_Y, 56, fade);
   }
-
-  // おしたキーの表示(右下)
-  ["L", "U", "D", "R"].forEach((key, i) => {
-    const lit = r.pressed[key] !== undefined && now - r.pressed[key] < 0.12;
-    drawArrowBox(key, W - 190 + i * 52, H - 24, lit ? 40 : 34, lit ? 1 : 0.45);
-  });
 
   // 判定の文字
   for (const p of r.popups) {
@@ -546,14 +556,14 @@ function draw(now) {
   // カウントダウンと手順の見出し
   if (now < BAR) {
     const n = 4 - Math.floor(now / BEAT);
-    if (n >= 1 && n <= 3) outlined(String(n), W / 2, 250, 120, "#e8472f");
-    else if (now >= 0) outlined("GO!", W / 2, 250, 100, "#e8472f");
-    outlined("矢印キーを リズムに合わせて おそう！", W / 2, 330, 28, "#4a2c17");
+    if (n >= 1 && n <= 3) outlined(String(n), W / 2, 200, 100, "#e8472f");
+    else if (now >= 0) outlined("GO!", W / 2, 200, 90, "#e8472f");
+    outlined("矢印キーを リズムに合わせて おそう！", W / 2, 125, 28, "#4a2c17");
   }
   if (now >= r.banner.from && now < r.banner.until) {
     const t = now - r.banner.from;
     g.globalAlpha = Math.min(1, (r.banner.until - now) * 2, t * 4);
-    outlined(r.banner.text, W / 2, 150, 44, enemy.boss ? "#8a2be2" : "#e8472f");
+    outlined(r.banner.text, W / 2, 128, 40, enemy.boss ? "#8a2be2" : "#e8472f");
     g.globalAlpha = 1;
   }
   if (r.phase === "end") {
@@ -575,6 +585,10 @@ window.addEventListener("keydown", (event) => {
   unlock();
   if (event.code === "Escape" && run) {
     quitToCover();
+    return;
+  }
+  if (event.code === "KeyM" && !event.repeat) {
+    toggleMute();
     return;
   }
   if (!run) return;
@@ -617,15 +631,22 @@ $("btn-offset-down").addEventListener("click", () => {
 });
 showOffset();
 
-$("btn-mute").addEventListener("click", () => {
-  unlock();
-  setMuted(!isMuted());
-  $("btn-mute").textContent = isMuted() ? "おと：なし" : "おと：あり";
+$("btn-mute").addEventListener("click", toggleMute);
+$("btn-mute-play").addEventListener("click", (event) => {
+  toggleMute();
+  event.currentTarget.blur(); // フォーカスが残ると、Enterなどで また押されてしまう
 });
+$("btn-quit").addEventListener("click", quitToCover);
+
+// 画面がかくれたら、ゲームをやめて、BGMも止める(のこらないように)
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && run) quitToCover();
+});
+window.addEventListener("pagehide", stopSong);
 
 // 動作確認用。アドレスの最後に ?debug をつけたときだけ、外から中をのぞける。
 if (location.search.includes("debug")) {
-  window.__game = { getRun: () => run, songTime, update, press, draw, begin };
+  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources };
 }
 
 loadImages().then(() => {
