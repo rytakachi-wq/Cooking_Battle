@@ -11,6 +11,8 @@ export const WINDOW = { perfect: 0.07, good: 0.14 }; // 押すタイミングの
 export const PLAYER_HP = 100;
 export const MISS_DAMAGE = 8; // ミスしたときに受けるダメージ
 export const HIT_DAMAGE = { perfect: 18, good: 12 }; // 敵に与えるダメージ
+// リズムでのミスが、この数に なると、「料理が しっぱい」の見た目になる(手順ならべの まちがいとは、べつ)
+export const COOK_FAIL_MISSES = 3;
 export const PENALTY = 1.15; // 手順えらびを まちがえたとき、次の敵の体力が ふえる倍率
 export const HIT_SCORE = { perfect: 100, good: 60 };
 
@@ -26,7 +28,9 @@ export function createState(recipe = DEFAULT_RECIPE) {
     recipe,
     tips: [], // 出てきた豆知識(結果画面で見返す)
     review: [], // 手順えらびの記録(結果画面で見返す)
-    fails: {}, // 失敗した手順(敵のid → true)。調理台の絵に出る・敵が強くなる
+    fails: {}, // 手順ならべを まちがえた敵(敵のid → true)。敵が強くなる(体力+15%・強い姿)
+    cookFails: {}, // リズムで ミスが多くて、料理が しっぱいした手順(敵のid → true)。調理台の絵に出る
+    enemyMisses: 0, // いまの敵との リズムでの ミスの数
     steps: {}, // えらんだやりかたの動き(敵のid → 文字の並び)。矢印のお皿の下に出る
     score: 0,
     combo: 0,
@@ -80,6 +84,8 @@ export function registerHit(state, grade) {
 export function registerMiss(state) {
   state.combo = 0;
   state.miss += 1;
+  state.enemyMisses += 1;
+  if (state.enemyMisses >= COOK_FAIL_MISSES) state.cookFails[enemyOf(state).id] = true;
   state.playerHp = Math.max(0, state.playerHp - MISS_DAMAGE);
   return state.playerHp === 0;
 }
@@ -90,6 +96,7 @@ export function nextEnemy(state) {
   state.enemyIndex += 1;
   state.enemyHp = state.recipe.enemies[state.enemyIndex].hp;
   state.enemyMax = state.enemyHp;
+  state.enemyMisses = 0;
   return true;
 }
 

@@ -236,3 +236,13 @@ html, body {
 
 .quiz-choices li { position: relative; }
 .choice .order { font-size: 12px; }
+
+.quiz-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.quiz-left {
+  padding: 2px 12px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 999px;
+}

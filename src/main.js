@@ -4,6 +4,7 @@ import {
   ARROW_KEYS,
   answerQuiz,
   BAR,
+  HIT_DAMAGE,
   BEAT,
   EXTRA_KEYS,
   PLAYER_HP,
@@ -177,6 +178,9 @@ function openQuiz(def, failKey, now = songTime()) {
   run.quiz = { def, items, failKey, order: [], answered: false, cards: [] };
   run.banner = { text: def.step, from: now, until: now + 9999 };
   $("quiz-step").textContent = def.step;
+  // この問題のあとに、戦いが はじまる。準備の問題のときは、つぎに卵の問題が ある
+  const left = failKey === "prep" ? 2 : 1;
+  $("quiz-left").textContent = left === 1 ? "この問題が おわると 戦いだよ！" : `のこり ${left}問で 戦いだよ！`;
   $("quiz-q").textContent = def.quiz.question;
   const list = $("quiz-choices");
   list.replaceChildren();
@@ -315,7 +319,6 @@ function endQuiz(now = songTime()) {
   run.banner = { text: enemyOf(run.state).step, from: now, until: now + 2.5 };
   if (run.state.fails[enemyOf(run.state).id]) {
     run.popups.push({ text: "パワーアップ！", color: "#e8472f", x: 770, y: 150, from: now, big: true });
-    run.stamp = { from: now, until: now + 2.6 }; // 「しっぱい！」の札は、少しだけ出して、消える
   }
 }
 
@@ -367,12 +370,39 @@ function finish(result, now) {
 
 function onMiss(note, now) {
   note.status = "miss";
+  const enemyId = enemyOf(run.state).id;
+  const wasFailed = run.state.cookFails[enemyId] === true;
   const dead = registerMiss(run.state);
   popup("MISS", "#7a7a7a", now);
   setHero("damage", now, 0.45);
   setEnemy("attack", now, 0.45);
   playSe("miss");
+  // ミスが たまると、料理が しっぱいした見た目になる(手順ならべの まちがいとは、べつ)
+  if (!wasFailed && run.state.cookFails[enemyId]) run.stamp = { from: now, until: now + 2.4 };
   if (dead) finish("lose", now);
+  else defeatIfDone(now, note.bar, false);
+}
+
+// 敵の体力が0でも、その小節の矢印を ぜんぶ おし終える(または 見のがす)まで、敵は たおれない。
+// (さいごの矢印を おさなくても すすめてしまう、ということが ないように)
+function defeatIfDone(now, bar, hit) {
+  if (!run || run.phase !== "fight" || run.state.enemyHp > 0) return;
+  if (run.notes.some((n) => n.bar === bar && n.status === "pending")) return;
+  if (!hit) {
+    // さいごの矢印を はずしたら、とどめを さしきれない。敵は、少しだけ 体力が のこる
+    run.state.enemyHp = HIT_DAMAGE.good;
+    popup("とどめを さそう！", "#e8472f", now, 770, 150);
+    return;
+  }
+  clearPending();
+  showTip(now); // 倒した敵の豆知識を、1行だけ出す
+  run.downAt = now + 0.2; // 三日月がとどいてから、たおれる
+  if (run.state.enemyIndex === run.state.recipe.enemies.length - 1) {
+    finish("win", now);
+  } else {
+    run.phase = "down";
+    run.phaseUntil = now + TIP_TIME + 0.4; // 豆知識を読む時間を、とる
+  }
 }
 
 // 主人公のこうげき:前に出て、三日月をとばす。三日月が敵にとどいたとき(0.2秒後)に、敵がひるむ。
@@ -406,21 +436,11 @@ function press(key, now) {
   const grade = judge(target.time - now);
   target.status = "hit";
   target.hitAt = now;
-  const killed = registerHit(run.state, grade);
+  registerHit(run.state, grade);
   popup(grade === "perfect" ? "PERFECT!" : "GOOD", grade === "perfect" ? "#ff8a00" : "#2f9e44", now);
   attack(now, grade);
   playSe(grade);
-  if (killed) {
-    clearPending();
-    showTip(now); // 倒した敵の豆知識を、1行だけ出す
-    run.downAt = now + 0.2; // 三日月がとどいてから、たおれる
-    if (run.state.enemyIndex === run.state.recipe.enemies.length - 1) {
-      finish("win", now);
-    } else {
-      run.phase = "down";
-      run.phaseUntil = now + TIP_TIME + 0.4; // 豆知識を読む時間を、とる
-    }
-  }
+  defeatIfDone(now, target.bar, true);
 }
 
 function update(now) {
@@ -509,6 +529,7 @@ function showResult() {
   $("r-good").textContent = s.good;
   $("r-miss").textContent = s.miss;
   $("r-combo").textContent = s.maxCombo;
+  $("r-cook").textContent = `${Object.keys(s.cookFails).length} / ${s.recipe.enemies.length}`;
   $("r-quiz").textContent = `${s.review.filter((item) => item.correct).length} / ${s.review.length}`;
   $("r-best").textContent = loadStats().bestScore;
   $("r-record").hidden = !isRecord;
@@ -704,7 +725,7 @@ function drawBoard(r, now) {
   } else {
     g.textAlign = "left";
     g.fillStyle = responding ? "#e8472f" : "rgba(74,44,23,0.55)";
-    g.fillText(responding ? "まねして おそう！" : "ちゅうもん", cx - 150, cy - 22);
+    g.fillText(responding ? (r.state.enemyHp <= 0 ? "とどめ！ さいごまで おそう！" : "まねして おそう！") : "ちゅうもん", cx - 150, cy - 22);
   }
   g.restore();
 
@@ -797,16 +818,15 @@ function drawBoard(r, now) {
       g.textBaseline = "middle";
       g.fillText(b === 3 ? "休" : String(b + 1), x, ty + 1);
       g.textBaseline = "alphabetic";
-    } else {
+    } else if (note) {
+      // 半拍の矢印があるところだけ、小さい丸を出す(整数の拍だけのときは、出さない)
       g.beginPath();
-      g.arc(x, ty, note ? 6 : 3.5, 0, Math.PI * 2);
-      g.fillStyle = on ? (calling ? "#3d79d6" : "#e8472f") : note ? DIR_COLOR[note.key] : "rgba(74,44,23,0.28)";
+      g.arc(x, ty, 6, 0, Math.PI * 2);
+      g.fillStyle = on ? (calling ? "#3d79d6" : "#e8472f") : DIR_COLOR[note.key];
       g.fill();
-      if (note) {
-        g.lineWidth = 2;
-        g.strokeStyle = INK;
-        g.stroke();
-      }
+      g.lineWidth = 2;
+      g.strokeStyle = INK;
+      g.stroke();
     }
   }
 
@@ -1119,7 +1139,7 @@ function draw(now) {
   if (inQuiz) {
     drawQuizScene(g, r.quiz.failKey, now);
     drawNextEnemyPreview(r, now);
-  } else drawStation(g, s.enemyIndex, r.shown, now, s.fails);
+  } else drawStation(g, s.enemyIndex, r.shown, now, s.cookFails);
 
   // 主人公:こうげきで前に出る
   const lunge = lungeAmount(now, r);
@@ -1168,7 +1188,7 @@ function draw(now) {
   bar(W - 324, 36, 300, 20, s.enemyHp / s.enemyMax, "#ff6b6b", enemy.name);
   outlined(`${s.score}`, W / 2, 44, 34, "#4a2c17");
   const failCount = Object.keys(s.fails).length;
-  if (failCount) outlined(`しっぱい ×${failCount}`, 24 + 150, 82, 18, "#e8472f");
+  if (failCount) outlined(`手順まちがい ×${failCount}`, 24 + 150, 82, 18, "#e8472f");
   if (s.combo >= 2) outlined(`${s.combo} COMBO`, W / 2, 80, 22, "#e8472f");
   g.font = "bold 16px sans-serif";
   g.textAlign = "right";

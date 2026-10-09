@@ -36,7 +36,7 @@
     <section id="screen-play" class="screen" aria-label="プレイ" hidden>
       <canvas id="stage" width="960" height="540"></canvas>
       <section id="quiz" class="quiz" aria-live="polite" hidden>
-        <p id="quiz-step" class="quiz-step"></p>
+        <p class="quiz-head"><span id="quiz-step" class="quiz-step"></span><span id="quiz-left" class="quiz-left"></span></p>
         <p id="quiz-q" class="quiz-q"></p>
         <ol id="quiz-choices" class="quiz-choices"></ol>
         <p id="quiz-guide" class="quiz-guide">カードを、<b>はじめにする ことから じゅんばんに</b> えらんでね。えらんだカードは、左から ならぶよ(数字キーは 左から数える / もどす: Backspace か、えらんだカードを もういちど クリック / のこり1まいに なったら「けってい」)</p>
@@ -68,6 +68,7 @@
         <div><dt>ミス</dt><dd id="r-miss"></dd></div>
         <div><dt>さいだいコンボ</dt><dd id="r-combo"></dd></div>
         <div><dt>手順えらび</dt><dd id="r-quiz"></dd></div>
+        <div><dt>調理の しっぱい</dt><dd id="r-cook"></dd></div>
         <div><dt>さいこうとくてん</dt><dd id="r-best"></dd></div>
       </dl>
       <p id="r-record" class="record" hidden>しんきろく！</p>
