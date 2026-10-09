@@ -233,3 +233,6 @@ html, body {
 .choice .txt { flex: 1; }
 .choice .order { flex: none; font-size: 13px; color: var(--accent); }
 .choice.picked { background: #fff1c2; opacity: 1; }
+
+.quiz-choices li { position: relative; }
+.choice .order { font-size: 12px; }

@@ -113,11 +113,17 @@ function scheduleBar(bar) {
     tone(120, t, 0.2, { type: "sine", volume: 0.9, to: 42, bus: songBus }); // キック(拍の頭がはっきりわかるように、大きめ)
     if (b % 2 === 1) hiss(t, 0.14, { volume: 0.3, freq: 2000, bus: songBus }); // スネア
   }
-  for (let e = 0; e < 8; e += 1) {
-    const t = t0 + e * (BEAT / 2);
-    hiss(t, 0.04, { volume: e % 2 ? 0.1 : 0.05, bus: songBus }); // ハイハット
-    tone(midi(root - 12 + (e % 4 === 2 ? 12 : 0)), t, BEAT / 2 - 0.03, { type: "triangle", volume: 0.3, bus: songBus }); // ベース
-    tone(midi(root + 12 + MELODY[bar % 4][e]), t, BEAT / 2 - 0.05, { type: "square", volume: 0.03, bus: songBus }); // メロディ(拍をじゃましないよう、小さめ)
+  // ベースは、4分音符(拍の頭)。ハイハットは、拍の頭を はっきり、あいだは ごく小さく
+  for (let b = 0; b < 4; b += 1) {
+    const t = t0 + b * BEAT;
+    const note = b === 2 ? root - 5 : root; // 3拍めだけ、すこし ひくい音
+    tone(midi(note - 12), t, BEAT - 0.05, { type: "triangle", volume: 0.34, bus: songBus });
+    hiss(t, 0.05, { volume: 0.12, bus: songBus });
+    hiss(t + BEAT / 2, 0.03, { volume: 0.035, bus: songBus });
+  }
+  // メロディは、1拍ごと(ゆっくり)。拍をじゃましない
+  for (let h = 0; h < 4; h += 1) {
+    tone(midi(root + 12 + MELODY[bar % 4][h * 2]), t0 + h * BEAT, BEAT * 0.9, { type: "square", volume: 0.028, bus: songBus });
   }
 }
 

@@ -29,7 +29,7 @@ const H = 540;
 // false のあいだは、通常の絵に、コードでかざりを重ねる。
 const STRONG_ART = false;
 const LUNGE = 60; // 主人公が、こうげきで前に出る大きさ(大きく動くと目が疲れるので、小さめ)
-const BOARD = { cx: 470, cy: 193, gap: 80, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
+const BOARD = { cx: 470, cy: 184, gap: 80, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
 const TIP_TIME = 3.2; // 豆知識を出している秒数(1行を、ゆっくり読める長さ)
 const LOOKAHEAD = 2.6; // 何秒さきまで、矢印を作っておくか
 
@@ -135,7 +135,7 @@ function quitToCover() {
   showCover();
 }
 
-function popup(text, color, now, x = BOARD.cx, y = BOARD.cy + 108) {
+function popup(text, color, now, x = BOARD.cx, y = BOARD.cy - 58) {
   run.popups.push({ text, color, x, y, from: now });
 }
 
@@ -164,6 +164,7 @@ function shuffle(list) {
 }
 
 // ならべる画面を出す。リズムは、この画面を終えてから、はじまる。
+// えらんだカードは、えらんだ順に、左から ならぶ(のこりのカードは、そのあと)。
 function openQuiz(def, failKey, now = songTime()) {
   clearPending();
   run.notes = [];
@@ -172,7 +173,7 @@ function openQuiz(def, failKey, now = songTime()) {
   const ranked = def.quiz.steps.map((item, rank) => ({ ...item, rank }));
   let items = shuffle(ranked);
   for (let tries = 0; tries < 8 && items.every((item, i) => item.rank === i); tries += 1) items = shuffle(ranked);
-  run.quiz = { def, items, failKey, order: [], answered: false };
+  run.quiz = { def, items, failKey, order: [], answered: false, cards: [] };
   run.banner = { text: def.step, from: now, until: now + 9999 };
   $("quiz-step").textContent = def.step;
   $("quiz-q").textContent = def.quiz.question;
@@ -185,53 +186,77 @@ function openQuiz(def, failKey, now = songTime()) {
     button.className = "choice";
     const num = document.createElement("span");
     num.className = "num";
-    num.textContent = String(i + 1);
     const text = document.createElement("span");
     text.className = "txt";
     text.textContent = item.text;
-    const order = document.createElement("span");
-    order.className = "order";
-    button.append(num, text, order);
+    const tag = document.createElement("span");
+    tag.className = "order";
+    button.append(num, text, tag);
     button.addEventListener("click", () => choose(i));
     li.append(button);
     list.append(li);
+    run.quiz.cards.push(li);
   });
   $("quiz-guide").hidden = false;
   $("btn-quiz-undo").hidden = false;
-  $("btn-quiz-undo").disabled = true;
   $("quiz-feedback").hidden = true;
   $("quiz").hidden = false;
+  layoutQuiz(false);
 }
 
-function refreshQuizButtons() {
+// 画面に出ている並び(えらんだ順 → のこり)。数字キーは、この並びの左から数える。
+function quizDisplayOrder(q) {
+  return [...q.order, ...q.items.map((_, i) => i).filter((i) => !q.order.includes(i))];
+}
+
+// カードを、えらんだ順に ならべかえる(うごきも つける)
+function layoutQuiz(animate = true) {
   const q = run.quiz;
-  [...$("quiz-choices").querySelectorAll("button")].forEach((button, i) => {
-    const pos = q.order.indexOf(i);
-    button.classList.toggle("picked", pos >= 0);
-    button.querySelector(".order").textContent = pos >= 0 ? `${pos + 1}番め` : "";
-    button.disabled = pos >= 0 || q.answered;
+  const list = $("quiz-choices");
+  const before = new Map(q.cards.map((li) => [li, li.getBoundingClientRect()]));
+  const display = quizDisplayOrder(q);
+  display.forEach((i) => list.append(q.cards[i]));
+  display.forEach((i, pos) => {
+    const li = q.cards[i];
+    const button = li.querySelector("button");
+    const picked = pos < q.order.length;
+    button.classList.toggle("picked", picked);
+    button.querySelector(".num").textContent = String(pos + 1);
+    button.querySelector(".order").textContent = picked && !q.answered ? "← おすと もどす" : "";
+    button.disabled = q.answered;
+    if (animate) {
+      const from = before.get(li);
+      const to = li.getBoundingClientRect();
+      const dx = from.left - to.left;
+      const dy = from.top - to.top;
+      if (dx || dy) li.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 280, easing: "ease-out" });
+    }
   });
   $("btn-quiz-undo").disabled = q.order.length === 0 || q.answered;
 }
 
-// カードを1まい えらぶ(えらんだ順が、答えの順)。ぜんぶ えらんだら、答えあわせ。
+// カードを1まい えらぶ(えらんだ順が、答えの順)。えらんであるカードを おすと、そこから もどる。
+// ぜんぶ えらんだら、答えあわせ。
 function choose(i) {
   const q = run?.quiz;
-  if (!q || q.answered || !q.items[i] || q.order.includes(i)) return;
+  if (!q || q.answered || !q.items[i]) return;
+  const at = q.order.indexOf(i);
+  if (at >= 0) {
+    q.order.length = at;
+    layoutQuiz();
+    return;
+  }
   q.order.push(i);
   if (q.order.length < q.items.length) {
-    refreshQuizButtons();
+    layoutQuiz();
     return;
   }
   q.answered = true;
   const result = answerQuiz(run.state, q.def, q.items, q.order, q.failKey);
   q.result = result;
-  [...$("quiz-choices").querySelectorAll("button")].forEach((button, index) => {
-    const pos = q.order.indexOf(index);
-    const right = q.items[index].rank === pos;
-    button.disabled = true;
-    button.classList.add("picked", right ? "ok" : "ng");
-    button.querySelector(".order").textContent = `${pos + 1}番め`;
+  layoutQuiz();
+  q.order.forEach((index, pos) => {
+    q.cards[index].querySelector("button").classList.add(q.items[index].rank === pos ? "ok" : "ng");
   });
   $("quiz-guide").hidden = true;
   $("btn-quiz-undo").hidden = true;
@@ -244,12 +269,20 @@ function choose(i) {
   playSe(result.correct ? "perfect" : "miss");
 }
 
+// 数字キー:画面の左から数えた、カードを えらぶ
+function chooseAt(position) {
+  const q = run?.quiz;
+  if (!q) return;
+  const display = quizDisplayOrder(q);
+  if (display[position] !== undefined) choose(display[position]);
+}
+
 // 1つ もどす
 function undoChoice() {
   const q = run?.quiz;
   if (!q || q.answered || !q.order.length) return;
   q.order.pop();
-  refreshQuizButtons();
+  layoutQuiz();
 }
 
 // 答えを見たあと、リズムの戦いへ。
@@ -348,7 +381,12 @@ function press(key, now) {
     const d = Math.abs(note.time - now);
     if (d <= WINDOW.good && (!target || d < Math.abs(target.time - now))) target = note;
   }
-  if (!target) return;
+  if (!target) {
+    // 敵が やって見せているあいだは、おせない
+    const st = boardState(run, now);
+    if (st?.calling) popup("まだ！ ききましょう", "#5b7aa3", now, BOARD.cx, BOARD.cy - 58);
+    return;
+  }
   if (target.key !== key) {
     onMiss(target, now);
     return;
@@ -572,53 +610,90 @@ function drawPlate(key, x, y, r, state = "pending", alpha = 1) {
 // 画面のまんなか(主人公と敵のあいだ)の「注文カード」。
 // 敵が1小節で やって見せ(音といっしょに お皿がひかる)、つぎの1小節で、プレイヤーが まねして おす。
 // 矢印は動かない。おすタイミングは、曲のリズムと、したの拍のランプで、つかむ。
+//   ききましょう(青いカード・かぎ・敵のふきだし ♪) …おせない
+//   まねして！  (あたたかいカード・赤いランプ)       …おせる
+
+// いま、どの小節を見せているか。{ group, calling, responding, callStart, respStart }
+function boardState(r, now) {
+  const live = r.notes.filter((n) => n.status !== "cancel" && n.time >= now - 0.35);
+  if (!live.length) return null;
+  const bar = Math.min(...live.map((n) => n.bar));
+  const group = r.notes.filter((n) => n.bar === bar && n.status !== "cancel").sort((a, b) => a.slot - b.slot);
+  const respStart = bar * BAR;
+  const callStart = respStart - BAR;
+  return {
+    group,
+    callStart,
+    respStart,
+    calling: now >= callStart && now < respStart,
+    responding: now >= respStart && now < respStart + BAR,
+  };
+}
+
+function drawLock(x, y) {
+  g.save();
+  g.strokeStyle = "#5b7aa3";
+  g.lineWidth = 3;
+  g.beginPath();
+  g.arc(x, y - 4, 6, Math.PI, 0);
+  g.stroke();
+  g.fillStyle = "#5b7aa3";
+  g.beginPath();
+  g.roundRect(x - 9, y - 4, 18, 14, 3);
+  g.fill();
+  g.restore();
+}
+
 function drawBoard(r, now) {
   const { cx, cy, gap, r: pr } = BOARD;
-  // カード
+  const st = boardState(r, now);
+  const calling = st?.calling === true;
+
+  // カード(ききましょう=青、まねして=あたたかい色)
   g.save();
   g.fillStyle = "rgba(74,44,23,0.18)";
-  roundRect(cx - 168, cy - 36, 336, 112, 26);
+  roundRect(cx - 168, cy - 36, 336, 128, 26);
   g.fill();
-  g.fillStyle = "#fff4d8";
-  g.strokeStyle = INK;
+  g.fillStyle = calling ? "#dfe9f6" : "#fff4d8";
+  g.strokeStyle = calling ? "#5b7aa3" : INK;
   g.lineWidth = 3;
-  roundRect(cx - 168, cy - 42, 336, 112, 26);
+  roundRect(cx - 168, cy - 42, 336, 128, 26);
   g.fill();
   g.stroke();
   g.restore();
 
-  // いま見せる並び = いちばん近い音符がある小節
-  const live = r.notes.filter((n) => n.status !== "cancel" && n.time >= now - 0.35);
-  if (!live.length) {
+  if (!st) {
     g.fillStyle = "rgba(74,44,23,0.55)";
     g.font = "bold 13px sans-serif";
     g.textAlign = "left";
     g.fillText("ちゅうもん", cx - 150, cy - 22);
     return;
   }
-  const bar = Math.min(...live.map((n) => n.bar));
-  const group = r.notes.filter((n) => n.bar === bar && n.status !== "cancel").sort((a, b) => a.slot - b.slot);
-  const respStart = bar * BAR;
-  const callStart = respStart - BAR;
-  const calling = now >= callStart && now < respStart;
-  const responding = now >= respStart && now < respStart + BAR;
+  const { group, callStart, respStart, responding } = st;
 
-  // ききましょう / まねして！
+  // ききましょう(おせない) / まねして！
   g.save();
   g.font = "bold 14px sans-serif";
-  g.textAlign = "right";
-  g.fillStyle = calling ? "#2f7bff" : responding ? "#e8472f" : "rgba(74,44,23,0.55)";
-  g.fillText(calling ? "ききましょう ♪" : responding ? "まねして！" : "ちゅうもん", cx + 152, cy - 22);
+  if (calling) {
+    drawLock(cx - 146, cy - 24);
+    g.textAlign = "left";
+    g.fillStyle = "#3d5f8f";
+    g.fillText("ききましょう ♪  (まだ おせないよ)", cx - 130, cy - 20);
+  } else {
+    g.textAlign = "left";
+    g.fillStyle = responding ? "#e8472f" : "rgba(74,44,23,0.55)";
+    g.fillText(responding ? "まねして おそう！" : "ちゅうもん", cx - 150, cy - 20);
+  }
   g.restore();
 
   group.forEach((note, i) => {
     const x = cx + (i - (group.length - 1) / 2) * gap;
-    const y = cy + 8;
+    const y = cy + 16;
     const since = now - note.callAt;
     const lit = calling && since >= 0 && since < 0.4; // 敵が、いま やって見せている
     if (lit) {
       g.save();
-      g.globalAlpha = 0.55 * (1 - since / 0.4);
+      g.globalAlpha = 0.6 * (1 - since / 0.4);
       g.fillStyle = "#ffd23f";
       g.beginPath();
       g.arc(x, y, pr + 14 - since * 10, 0, Math.PI * 2);
@@ -627,11 +702,11 @@ function drawBoard(r, now) {
     }
     if (note.label) {
       g.save();
-      g.fillStyle = INK;
+      g.fillStyle = calling ? "#3d5f8f" : INK;
       g.font = lit ? "bold 15px sans-serif" : "bold 13px sans-serif";
       g.textAlign = "center";
       g.globalAlpha = note.status === "miss" ? 0.45 : 1;
-      g.fillText(note.label, x, y + pr + 20, gap - 6);
+      g.fillText(note.label, x, y + pr + 18, gap - 6);
       g.restore();
     }
     if (note.status === "hit") {
@@ -650,19 +725,56 @@ function drawBoard(r, now) {
     } else if (note.status === "miss") {
       drawPlate(note.key, x, y, pr, "miss", 0.7);
     } else {
-      drawPlate(note.key, x, y, lit ? pr * 1.12 : pr);
+      // ききましょうのあいだは、お皿を すこし うすくして、「いまは見るだけ」と わかるようにする
+      drawPlate(note.key, x, y, lit ? pr * 1.12 : pr, "pending", calling && !lit ? 0.7 : 1);
     }
   });
 
-  // 拍のランプ(1・2・3・4)。いま何拍めかが わかる
+  // 拍のランプ(1・2・3・4)。BGM(game.js の BPM)と、おなじ時計・おなじテンポで動く
   if (calling || responding) {
     const beat = Math.floor((now - (calling ? callStart : respStart)) / BEAT);
     for (let b = 0; b < 4; b += 1) {
+      const x = cx + (b - 1.5) * 28;
+      const y = cy + 77;
+      const on = b === beat;
       g.beginPath();
-      g.arc(cx + (b - 1.5) * 22, cy + 64, 6, 0, Math.PI * 2);
-      g.fillStyle = b === beat ? (calling ? "#2f7bff" : "#e8472f") : "rgba(74,44,23,0.2)";
+      g.arc(x, y, 9, 0, Math.PI * 2);
+      g.fillStyle = on ? (calling ? "#3d79d6" : "#e8472f") : "rgba(74,44,23,0.15)";
       g.fill();
+      g.fillStyle = on ? "#fff" : "rgba(74,44,23,0.45)";
+      g.font = "bold 11px sans-serif";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText(String(b + 1), x, y + 1);
+      g.textBaseline = "alphabetic";
     }
+  }
+
+  // 敵の ふきだし(♪):敵が やって見せているあいだだけ
+  if (calling) {
+    const bx = 700;
+    const by = 112;
+    g.save();
+    g.fillStyle = "#fff";
+    g.strokeStyle = "#5b7aa3";
+    g.lineWidth = 3;
+    g.beginPath();
+    g.roundRect(bx - 46, by - 22, 92, 44, 20);
+    g.fill();
+    g.stroke();
+    g.beginPath();
+    g.moveTo(bx + 18, by + 21);
+    g.lineTo(bx + 40, by + 44);
+    g.lineTo(bx + 34, by + 20);
+    g.closePath();
+    g.fillStyle = "#fff";
+    g.fill();
+    g.fillStyle = "#3d79d6";
+    g.font = "bold 24px sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText("♪ ♫", bx, by + 1);
+    g.restore();
   }
 }
 
@@ -993,7 +1105,7 @@ window.addEventListener("keydown", (event) => {
     const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[event.code];
     if (pick !== undefined) {
       event.preventDefault();
-      if (!event.repeat) choose(pick);
+      if (!event.repeat) chooseAt(pick);
     } else if (event.code === "Backspace" && !run.quiz.answered) {
       event.preventDefault();
       if (!event.repeat) undoChoice();
@@ -1059,7 +1171,7 @@ window.addEventListener("pagehide", stopSong);
 
 // 動作確認用。アドレスの最後に ?debug をつけたときだけ、外から中をのぞける。
 if (location.search.includes("debug")) {
-  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, endQuiz, undoChoice };
+  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, chooseAt, endQuiz, undoChoice };
 }
 
 loadImages().then(() => {
