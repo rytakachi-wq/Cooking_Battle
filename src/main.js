@@ -18,17 +18,18 @@ import {
   registerHit,
   registerMiss,
 } from "./game.js";
-import { activeSources, alive, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
+import { activeSources, alive, cueAtSongTime, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import { ENEMY_FX, STATION, drawFailStamp, drawStation } from "./station.js";
 import { loadStats, recordPlay } from "./storage.js";
 
 const W = 960;
 const H = 540;
+// 強化形態の専用の絵(assets/chars/<食材>_strong_<ポーズ>.png)が そろったら true にする。
+// false のあいだは、通常の絵に、コードでかざりを重ねる。
+const STRONG_ART = false;
 const LUNGE = 60; // 主人公が、こうげきで前に出る大きさ(大きく動くと目が疲れるので、小さめ)
 const BOARD = { cx: 470, cy: 193, gap: 80, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
-const APPROACH = 0.8; // 輪がちぢみはじめてから、おすまでの秒数
-const RING = 30; // 輪のいちばん大きいときの、お皿からの広がり
 const TIP_TIME = 3.2; // 豆知識を出している秒数(1行を、ゆっくり読める長さ)
 const LOOKAHEAD = 2.6; // 何秒さきまで、矢印を作っておくか
 
@@ -54,7 +55,12 @@ function loadImages() {
       jobs.push(img.decode().catch(() => {}));
     });
   add("hero", POSES.hero);
-  Object.values(RECIPES).forEach((recipe) => recipe.enemies.forEach((enemy) => add(enemy.id, POSES.enemy)));
+  Object.values(RECIPES).forEach((recipe) =>
+    recipe.enemies.forEach((enemy) => {
+      add(enemy.id, POSES.enemy);
+      if (STRONG_ART) add(`${enemy.id}_strong`, POSES.enemy);
+    }),
+  );
   return Promise.all(jobs);
 }
 
@@ -147,7 +153,7 @@ function clearPending() {
   for (const note of run.notes) if (note.status === "pending") note.status = "cancel";
 }
 
-// --- 手順えらび(どうやって調理する？) ---
+// --- 手順ならべ(正しい じゅんばんに ならべる) ---
 function shuffle(list) {
   const out = [...list];
   for (let i = out.length - 1; i > 0; i -= 1) {
@@ -157,19 +163,22 @@ function shuffle(list) {
   return out;
 }
 
-// えらぶ画面を出す。矢印のリズムは、この画面を終えてから、はじまる。
+// ならべる画面を出す。リズムは、この画面を終えてから、はじまる。
 function openQuiz(def, failKey, now = songTime()) {
   clearPending();
   run.notes = [];
   run.phase = "quiz";
-  const choices = shuffle(def.quiz.choices);
-  run.quiz = { def, choices, failKey, answered: false };
+  // 正しい順での位置(rank)をつけて、まぜる。まぜたあとも、正しい順のままに ならないよう、くりかえす。
+  const ranked = def.quiz.steps.map((item, rank) => ({ ...item, rank }));
+  let items = shuffle(ranked);
+  for (let tries = 0; tries < 8 && items.every((item, i) => item.rank === i); tries += 1) items = shuffle(ranked);
+  run.quiz = { def, items, failKey, order: [], answered: false };
   run.banner = { text: def.step, from: now, until: now + 9999 };
   $("quiz-step").textContent = def.step;
   $("quiz-q").textContent = def.quiz.question;
   const list = $("quiz-choices");
   list.replaceChildren();
-  choices.forEach((choice, i) => {
+  items.forEach((item, i) => {
     const li = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
@@ -177,32 +186,70 @@ function openQuiz(def, failKey, now = songTime()) {
     const num = document.createElement("span");
     num.className = "num";
     num.textContent = String(i + 1);
-    button.append(num, choice.text);
+    const text = document.createElement("span");
+    text.className = "txt";
+    text.textContent = item.text;
+    const order = document.createElement("span");
+    order.className = "order";
+    button.append(num, text, order);
     button.addEventListener("click", () => choose(i));
     li.append(button);
     list.append(li);
   });
-  $("quiz-choices").hidden = false;
+  $("quiz-guide").hidden = false;
+  $("btn-quiz-undo").hidden = false;
+  $("btn-quiz-undo").disabled = true;
   $("quiz-feedback").hidden = true;
   $("quiz").hidden = false;
 }
 
+function refreshQuizButtons() {
+  const q = run.quiz;
+  [...$("quiz-choices").querySelectorAll("button")].forEach((button, i) => {
+    const pos = q.order.indexOf(i);
+    button.classList.toggle("picked", pos >= 0);
+    button.querySelector(".order").textContent = pos >= 0 ? `${pos + 1}番め` : "";
+    button.disabled = pos >= 0 || q.answered;
+  });
+  $("btn-quiz-undo").disabled = q.order.length === 0 || q.answered;
+}
+
+// カードを1まい えらぶ(えらんだ順が、答えの順)。ぜんぶ えらんだら、答えあわせ。
 function choose(i) {
   const q = run?.quiz;
-  if (!q || q.answered || !q.choices[i]) return;
+  if (!q || q.answered || !q.items[i] || q.order.includes(i)) return;
+  q.order.push(i);
+  if (q.order.length < q.items.length) {
+    refreshQuizButtons();
+    return;
+  }
   q.answered = true;
-  const result = answerQuiz(run.state, q.def, q.choices, i, q.failKey);
+  const result = answerQuiz(run.state, q.def, q.items, q.order, q.failKey);
+  q.result = result;
   [...$("quiz-choices").querySelectorAll("button")].forEach((button, index) => {
+    const pos = q.order.indexOf(index);
+    const right = q.items[index].rank === pos;
     button.disabled = true;
-    if (q.choices[index].correct) button.classList.add("ok");
-    else if (index === i) button.classList.add("ng");
+    button.classList.add("picked", right ? "ok" : "ng");
+    button.querySelector(".order").textContent = `${pos + 1}番め`;
   });
-  $("quiz-verdict").textContent = result.correct ? "◎ せいかい！" : "× しっぱい…";
+  $("quiz-guide").hidden = true;
+  $("btn-quiz-undo").hidden = true;
+  $("quiz-verdict").textContent = result.correct ? "◎ せいかい！" : "× じゅんばんが ちがったよ";
   $("quiz-verdict").className = result.correct ? "verdict ok" : "verdict ng";
-  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　つぎの敵が、少し強くなったよ。`;
+  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　つぎの敵が、強くなったよ。`;
+  $("quiz-answer").textContent = `正しい じゅんばん： ${result.answer.map((text, n) => `${n + 1}. ${text}`).join("　")}`;
   $("quiz-reason").textContent = result.reason;
   $("quiz-feedback").hidden = false;
   playSe(result.correct ? "perfect" : "miss");
+}
+
+// 1つ もどす
+function undoChoice() {
+  const q = run?.quiz;
+  if (!q || q.answered || !q.order.length) return;
+  q.order.pop();
+  refreshQuizButtons();
 }
 
 // 答えを見たあと、リズムの戦いへ。
@@ -212,7 +259,7 @@ function endQuiz(now = songTime()) {
   run.quiz = null;
   $("quiz").hidden = true;
   if (q.failKey === "prep") {
-    // 準備のあとは、はじめの敵(卵)の「えらぶ」へ
+    // 準備のあとは、はじめの敵(卵)の「ならべる」へ
     const first = enemyOf(run.state);
     openQuiz({ step: first.step, quiz: first.quiz }, first.id, now);
     return;
@@ -221,7 +268,10 @@ function endQuiz(now = songTime()) {
   run.lastPattern = -1;
   run.nextBar = Math.ceil((now + 2) / BAR);
   run.banner = { text: enemyOf(run.state).step, from: now, until: now + 2.5 };
-  if (run.state.fails[enemyOf(run.state).id]) run.popups.push({ text: "パワーアップ！", color: "#e8472f", x: 770, y: 150, from: now, big: true });
+  if (run.state.fails[enemyOf(run.state).id]) {
+    run.popups.push({ text: "パワーアップ！", color: "#e8472f", x: 770, y: 150, from: now, big: true });
+    run.stamp = { from: now, until: now + 2.6 }; // 「しっぱい！」の札は、少しだけ出して、消える
+  }
 }
 
 // 結果画面の「ふりかえり」
@@ -234,7 +284,8 @@ function showReview(s) {
     const head = document.createElement("strong");
     head.textContent = `${item.correct ? "◎" : "×"} ${item.step}`;
     const body = document.createElement("span");
-    body.textContent = item.correct ? item.reason : `${item.picked} → ${item.fail} ${item.reason}`;
+    const order = item.answer.map((text, n) => `${n + 1}. ${text}`).join(" → ");
+    body.textContent = item.correct ? `${order}　${item.reason}` : `${item.fail} 正しくは： ${order}　${item.reason}`;
     li.append(head, body);
     list.append(li);
   }
@@ -325,13 +376,24 @@ function press(key, now) {
 function update(now) {
   const r = run;
   if (r.phase === "fight") {
+    // 2小節で1組:はじめの小節で、敵が やって見せ、つぎの小節で、プレイヤーが まねして おす(おすのは、あとの小節)
     while (r.nextBar * BAR - now < LOOKAHEAD) {
-      const bar = makeBar(enemyOf(r.state), r.nextBar * BAR, r.lastPattern);
+      const bar = makeBar(enemyOf(r.state), (r.nextBar + 1) * BAR, r.lastPattern);
       r.lastPattern = bar.index;
-      const steps = r.state.steps[enemyOf(r.state).id];
-      if (steps) for (const note of bar.notes) note.label = steps[note.slot % steps.length];
+      const steps = r.state.steps[enemyOf(r.state).id]; // いつも、正しい手順の名前
+      for (const note of bar.notes) if (steps) note.label = steps[note.slot];
       r.notes.push(...bar.notes);
-      r.nextBar += 1;
+      r.nextBar += 2;
+    }
+    for (const note of r.notes) {
+      // 敵が やって見せる時刻に、音を出して、敵が動く
+      if (note.status === "pending" && !note.cued && note.callAt - now < 0.05) {
+        note.cued = true;
+        if (note.callAt - now > -0.3) {
+          cueAtSongTime(note.callAt, note.key);
+          setEnemy("attack", now, 0.22);
+        }
+      }
     }
     for (const note of r.notes) {
       if (r.phase !== "fight") break;
@@ -507,40 +569,66 @@ function drawPlate(key, x, y, r, state = "pending", alpha = 1) {
   g.restore();
 }
 
-// 画面のまんなか(主人公と敵のあいだ)の「注文カード」。矢印は動かず、輪がちぢんで、おす合図になる。
-// 動くものが少ないので、目で追いつづけなくてよい。キャラクターには、かぶらない。
+// 画面のまんなか(主人公と敵のあいだ)の「注文カード」。
+// 敵が1小節で やって見せ(音といっしょに お皿がひかる)、つぎの1小節で、プレイヤーが まねして おす。
+// 矢印は動かない。おすタイミングは、曲のリズムと、したの拍のランプで、つかむ。
 function drawBoard(r, now) {
   const { cx, cy, gap, r: pr } = BOARD;
   // カード
   g.save();
   g.fillStyle = "rgba(74,44,23,0.18)";
-  roundRect(cx - 168, cy - 36, 336, 96, 26);
+  roundRect(cx - 168, cy - 36, 336, 112, 26);
   g.fill();
   g.fillStyle = "#fff4d8";
   g.strokeStyle = INK;
   g.lineWidth = 3;
-  roundRect(cx - 168, cy - 42, 336, 96, 26);
+  roundRect(cx - 168, cy - 42, 336, 112, 26);
   g.fill();
   g.stroke();
-  g.fillStyle = "rgba(74,44,23,0.55)";
-  g.font = "bold 12px sans-serif";
-  g.textAlign = "left";
-  g.fillText("ちゅうもん", cx - 150, cy - 24);
   g.restore();
 
   // いま見せる並び = いちばん近い音符がある小節
   const live = r.notes.filter((n) => n.status !== "cancel" && n.time >= now - 0.35);
-  if (!live.length) return;
+  if (!live.length) {
+    g.fillStyle = "rgba(74,44,23,0.55)";
+    g.font = "bold 13px sans-serif";
+    g.textAlign = "left";
+    g.fillText("ちゅうもん", cx - 150, cy - 22);
+    return;
+  }
   const bar = Math.min(...live.map((n) => n.bar));
   const group = r.notes.filter((n) => n.bar === bar && n.status !== "cancel").sort((a, b) => a.slot - b.slot);
+  const respStart = bar * BAR;
+  const callStart = respStart - BAR;
+  const calling = now >= callStart && now < respStart;
+  const responding = now >= respStart && now < respStart + BAR;
+
+  // ききましょう / まねして！
+  g.save();
+  g.font = "bold 14px sans-serif";
+  g.textAlign = "right";
+  g.fillStyle = calling ? "#2f7bff" : responding ? "#e8472f" : "rgba(74,44,23,0.55)";
+  g.fillText(calling ? "ききましょう ♪" : responding ? "まねして！" : "ちゅうもん", cx + 152, cy - 22);
+  g.restore();
+
   group.forEach((note, i) => {
     const x = cx + (i - (group.length - 1) / 2) * gap;
-    const y = cy - 2;
-    const dt = note.time - now;
+    const y = cy + 8;
+    const since = now - note.callAt;
+    const lit = calling && since >= 0 && since < 0.4; // 敵が、いま やって見せている
+    if (lit) {
+      g.save();
+      g.globalAlpha = 0.55 * (1 - since / 0.4);
+      g.fillStyle = "#ffd23f";
+      g.beginPath();
+      g.arc(x, y, pr + 14 - since * 10, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
     if (note.label) {
       g.save();
       g.fillStyle = INK;
-      g.font = "bold 13px sans-serif";
+      g.font = lit ? "bold 15px sans-serif" : "bold 13px sans-serif";
       g.textAlign = "center";
       g.globalAlpha = note.status === "miss" ? 0.45 : 1;
       g.fillText(note.label, x, y + pr + 20, gap - 6);
@@ -559,30 +647,23 @@ function drawBoard(r, now) {
         g.stroke();
         g.restore();
       }
-      return;
-    }
-    if (note.status === "miss") {
+    } else if (note.status === "miss") {
       drawPlate(note.key, x, y, pr, "miss", 0.7);
-      return;
-    }
-    drawPlate(note.key, x, y, pr);
-    // ちぢむ輪:輪が お皿に重なったときが、おすタイミング
-    if (dt <= APPROACH && dt > -0.16) {
-      const p = Math.max(0, Math.min(1, dt / APPROACH));
-      g.save();
-      g.globalAlpha = 0.3 + 0.6 * (1 - p);
-      g.strokeStyle = DIR_COLOR[note.key];
-      g.lineWidth = dt <= 0.07 ? 7 : 5;
-      g.beginPath();
-      g.arc(x, y, pr + 5 + RING * p, 0, Math.PI * 2);
-      g.stroke();
-      g.strokeStyle = INK;
-      g.globalAlpha = 0.5 * (1 - p);
-      g.lineWidth = 1.5;
-      g.stroke();
-      g.restore();
+    } else {
+      drawPlate(note.key, x, y, lit ? pr * 1.12 : pr);
     }
   });
+
+  // 拍のランプ(1・2・3・4)。いま何拍めかが わかる
+  if (calling || responding) {
+    const beat = Math.floor((now - (calling ? callStart : respStart)) / BEAT);
+    for (let b = 0; b < 4; b += 1) {
+      g.beginPath();
+      g.arc(cx + (b - 1.5) * 22, cy + 64, 6, 0, Math.PI * 2);
+      g.fillStyle = b === beat ? (calling ? "#2f7bff" : "#e8472f") : "rgba(74,44,23,0.2)";
+      g.fill();
+    }
+  }
 }
 
 // --- 強化形態(手順えらびをまちがえた敵) ---
@@ -807,23 +888,29 @@ function draw(now) {
   const since = now - r.hitAt;
   const flinch = since >= 0 && since < 0.18 ? 1 - since / 0.18 : 0;
   const weak = r.enemyPose === "normal" && s.enemyHp / s.enemyMax < 0.5 ? "damage" : r.enemyPose;
-  const ename = `${enemy.id}_${weak}`;
-  const edy = r.enemyPose === "normal" ? bounce : 0;
   const strong = s.fails[enemy.id] === true;
-  const escale = strong ? strongScale(ename, SCALE[enemy.id]) : SCALE[enemy.id];
+  const ename = strong && STRONG_ART ? `${enemy.id}_strong_${weak}` : `${enemy.id}_${weak}`;
+  const edy = r.enemyPose === "normal" ? bounce : 0;
+  const overlay = strong && !STRONG_ART;
+  const escale = overlay ? strongScale(ename, SCALE[enemy.id]) : SCALE[enemy.id];
   const eimg = images[ename];
   const ew = eimg?.naturalWidth ? eimg.naturalWidth * escale : 0;
   const eh = eimg?.naturalHeight ? eimg.naturalHeight * escale : 0;
-  if (strong && ew && r.enemyPose !== "down") drawStrongBack(770, 398 + edy, ew, eh, now);
+  if (overlay && ew && r.enemyPose !== "down") drawStrongBack(770, 398 + edy, ew, eh, now);
   if (flinch > 0) drawFlash(ename, 770, 398 + edy, escale, flinch * 0.5, flinch * 8);
   else drawSprite(ename, 770, 398, escale, { dy: edy });
-  if (strong && ew && r.enemyPose !== "down") drawStrongFront(770, 398 + edy, ew, eh);
+  if (overlay && ew && r.enemyPose !== "down") drawStrongFront(770, 398 + edy, ew, eh);
 
   for (const shot of r.shots) drawShot(shot, now, heroX);
   for (const b of r.bursts) drawBurst(b, now);
   for (const c of r.chunks) drawChunk(c, now);
 
-  if (s.fails[enemy.id] && r.phase === "fight") drawFailStamp(g, now);
+  if (r.stamp && now >= r.stamp.from && now < r.stamp.until) {
+    g.save();
+    g.globalAlpha = Math.min(1, (now - r.stamp.from) * 6, (r.stamp.until - now) * 3);
+    drawFailStamp(g, now);
+    g.restore();
+  }
 
   // 体力など
   bar(24, 36, 300, 20, s.playerHp / PLAYER_HP, "#4ecb71", "みならい りょうりにん");
@@ -903,10 +990,13 @@ window.addEventListener("keydown", (event) => {
   }
   if (!run) return;
   if (run.phase === "quiz" && run.quiz) {
-    const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[event.code];
+    const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[event.code];
     if (pick !== undefined) {
       event.preventDefault();
       if (!event.repeat) choose(pick);
+    } else if (event.code === "Backspace" && !run.quiz.answered) {
+      event.preventDefault();
+      if (!event.repeat) undoChoice();
     } else if ((event.code === "Enter" || event.code === "Space" || event.code === "NumpadEnter") && run.quiz.answered) {
       event.preventDefault();
       if (!event.repeat) endQuiz();
@@ -959,6 +1049,7 @@ $("btn-mute-play").addEventListener("click", (event) => {
 });
 $("btn-quit").addEventListener("click", quitToCover);
 $("btn-quiz-next").addEventListener("click", () => endQuiz());
+$("btn-quiz-undo").addEventListener("click", undoChoice);
 
 // 画面がかくれたら、ゲームをやめて、BGMも止める(のこらないように)
 document.addEventListener("visibilitychange", () => {
@@ -968,7 +1059,7 @@ window.addEventListener("pagehide", stopSong);
 
 // 動作確認用。アドレスの最後に ?debug をつけたときだけ、外から中をのぞける。
 if (location.search.includes("debug")) {
-  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, endQuiz };
+  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, endQuiz, undoChoice };
 }
 
 loadImages().then(() => {

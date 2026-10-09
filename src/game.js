@@ -10,7 +10,7 @@ export const BAR = BEAT * BAR_BEATS;
 export const WINDOW = { perfect: 0.07, good: 0.14 }; // 押すタイミングの許す差(秒)
 export const PLAYER_HP = 100;
 export const MISS_DAMAGE = 8; // ミスしたときに受けるダメージ
-export const HIT_DAMAGE = { perfect: 12, good: 8 }; // 敵に与えるダメージ
+export const HIT_DAMAGE = { perfect: 18, good: 12 }; // 敵に与えるダメージ
 export const PENALTY = 1.15; // 手順えらびを まちがえたとき、次の敵の体力が ふえる倍率
 export const HIT_SCORE = { perfect: 100, good: 60 };
 
@@ -56,6 +56,7 @@ export function makeBar(enemy, barStart, lastPattern = -1, random = Math.random)
   const bar = Math.round(barStart / BAR);
   const notes = enemy.patterns[index].map(([beat, key], slot) => ({
     time: barStart + beat * BEAT,
+    callAt: barStart + beat * BEAT - BAR, // 敵が、おなじ矢印を やって見せる時刻(1小節まえ)
     key,
     bar, // 何小節めか(注文カードで、同じ小節の矢印をまとめて見せる)
     slot, // 小節の中で何番めか
@@ -108,24 +109,25 @@ export function enemyOf(state) {
   return state.recipe.enemies[state.enemyIndex];
 }
 
-// 手順えらびに答える。まちがえたら、いまの敵(これから戦う敵)が、少し強くなる。
-// choices は、画面に出した順の並び。index は、えらんだ番号。
-export function answerQuiz(state, { step, quiz }, choices, index, failKey) {
-  const picked = choices[index];
-  const correct = picked.correct === true;
-  if (picked.steps) state.steps[failKey] = picked.steps;
+// 手順ならべに答える。items は、画面に出した並び({text, label, rank})。rank は、正しい順での位置(0から)。
+// order は、えらんだ順に、items の番号を ならべたもの。
+// リズムのときは、まちがえても、正しい順の名前(label)が出る。まちがえたら、いまの敵が、少し強くなる。
+export function answerQuiz(state, { step, quiz }, items, order, failKey) {
+  const correct = order.length === items.length && order.every((index, pos) => items[index].rank === pos);
+  state.steps[failKey] = quiz.steps.map((item) => item.label);
   if (!correct) {
     state.fails[failKey] = true;
     state.enemyMax = Math.round(state.enemyMax * PENALTY);
     state.enemyHp = state.enemyMax;
   }
+  const answer = quiz.steps.map((item) => item.text);
   state.review.push({
     step,
     question: quiz.question,
-    picked: picked.text,
     correct,
-    fail: correct ? "" : picked.fail,
+    answer,
+    fail: correct ? "" : quiz.fail,
     reason: quiz.reason,
   });
-  return { correct, fail: picked.fail ?? "", reason: quiz.reason };
+  return { correct, fail: correct ? "" : quiz.fail, reason: quiz.reason, answer };
 }

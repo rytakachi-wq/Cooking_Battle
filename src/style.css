@@ -227,3 +227,9 @@ html, body {
 @media (max-width: 700px) {
   .quiz-choices { grid-template-columns: 1fr; }
 }
+
+.quiz-guide { margin: 8px 0 !important; font-size: 14px; }
+.quiz-answer { margin-top: 4px !important; line-height: 1.6; font-weight: bold; }
+.choice .txt { flex: 1; }
+.choice .order { flex: none; font-size: 13px; color: var(--accent); }
+.choice.picked { background: #fff1c2; opacity: 1; }

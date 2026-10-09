@@ -242,3 +242,13 @@ export function playSe(name) {
     tone(660, t, 0.08, { type: "square", volume: 0.15 });
   }
 }
+
+// 敵が「やって見せる」ときの音。矢印の向きで、音の高さがちがう。
+// t は、曲の頭からの秒数(画面の時計と おなじ)。
+const CUE_PITCH = { L: 392, U: 523, R: 659, D: 330 };
+export function cueAtSongTime(t, key) {
+  if (!ctx || !master) return;
+  const when = ctx.currentTime + Math.max(0, t - songTime());
+  tone(CUE_PITCH[key] ?? 440, when, 0.2, { type: "triangle", volume: 0.35 });
+  tone((CUE_PITCH[key] ?? 440) * 2, when, 0.08, { type: "sine", volume: 0.15 });
+}

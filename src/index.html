@@ -14,9 +14,8 @@
       <h1 class="title">チョ～集中！<br>チョット調理ジャン！<br><span class="sub">～チャッ！🔥カリッ！🍳パリッ！～</span></h1>
       <img class="hero" src="../assets/chars/hero_normal.png" alt="見習い料理人">
       <p class="how">
-        曲に合わせて、流れてくる矢印を <b>同じ矢印キー</b> で押そう。<br>
-        ぴったり押すと、食材モンスターにダメージ！ ミスすると、自分の体力がへるよ。<br>
-        卵 → 牛乳 → ミックス → バター を倒して、ホットケーキを完成させよう。
+        料理の手順ごとに、①<b>手順を 正しい じゅんばんに ならべる</b> → ②食材モンスターが 矢印を<b>やって見せる</b>(音と ひかり) → ③つぎの小節で<b>まねして</b> 同じ矢印キーを おす、のくりかえし。<br>
+        ぴったり押すと ダメージ、ミスすると 自分の体力が へるよ。ならべまちがえると、敵が 強くなるよ。
       </p>
       <div class="menu">
         <button id="btn-start" class="btn btn-main" type="button">はじめる</button>
@@ -40,9 +39,12 @@
         <p id="quiz-step" class="quiz-step"></p>
         <p id="quiz-q" class="quiz-q"></p>
         <ol id="quiz-choices" class="quiz-choices"></ol>
+        <p id="quiz-guide" class="quiz-guide">カードを、<b>はじめにする ことから じゅんばんに</b> えらんでね(数字キー 1・2・3 か クリック。1つもどす: Backspace)</p>
+        <button id="btn-quiz-undo" class="btn btn-small" type="button">1つ もどす</button>
         <div id="quiz-feedback" hidden>
           <p id="quiz-verdict" class="verdict"></p>
           <p id="quiz-fail" class="quiz-fail"></p>
+          <p id="quiz-answer" class="quiz-answer"></p>
           <p id="quiz-reason" class="quiz-reason"></p>
           <button id="btn-quiz-next" class="btn btn-main btn-small" type="button">つぎへ (Enter)</button>
         </div>
