@@ -4,12 +4,12 @@ import {
   ARROW_KEYS,
   BAR,
   BEAT,
-  ENEMIES,
   EXTRA_KEYS,
   PLAYER_HP,
   WINDOW,
   accuracy,
   createState,
+  enemyOf,
   judge,
   makeBar,
   nextEnemy,
@@ -18,6 +18,7 @@ import {
   registerMiss,
 } from "./game.js";
 import { activeSources, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
+import { RECIPES } from "./recipes.js";
 import { ENEMY_FX, STATION, drawStation } from "./station.js";
 import { loadStats, recordPlay } from "./storage.js";
 
@@ -27,6 +28,7 @@ const LUNGE = 60; // 主人公が、こうげきで前に出る大きさ(大き�
 const BOARD = { cx: 470, cy: 193, gap: 76, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
 const APPROACH = 0.8; // 輪がちぢみはじめてから、おすまでの秒数
 const RING = 30; // 輪のいちばん大きいときの、お皿からの広がり
+const TIP_TIME = 3.2; // 豆知識を出している秒数(1行を、ゆっくり読める長さ)
 const LOOKAHEAD = 2.6; // 何秒さきまで、矢印を作っておくか
 
 const $ = (id) => document.getElementById(id);
@@ -51,7 +53,7 @@ function loadImages() {
       jobs.push(img.decode().catch(() => {}));
     });
   add("hero", POSES.hero);
-  ENEMIES.forEach((enemy) => add(enemy.id, POSES.enemy));
+  Object.values(RECIPES).forEach((recipe) => recipe.enemies.forEach((enemy) => add(enemy.id, POSES.enemy)));
   return Promise.all(jobs);
 }
 
@@ -109,7 +111,7 @@ function begin() {
     bursts: [], // 当たったときの火花
     shown: 0, // 調理台に見せている、料理の進みぐあい(0〜1。なめらかに動かす)
     lastFrame: 0,
-    banner: { text: ENEMIES[0].step, from: BAR, until: BAR + 3 },
+    banner: { text: enemyOf(createState()).step, from: BAR, until: BAR + 3 },
   };
   show("play");
   cancelAnimationFrame(frame);
@@ -141,10 +143,18 @@ function clearPending() {
   for (const note of run.notes) if (note.status === "pending") note.status = "cancel";
 }
 
+// 倒した敵の豆知識を出す。矢印をおしている最中には出さない(敵がたおれてから、つぎの敵まで)。
+function showTip(now) {
+  const enemy = enemyOf(run.state);
+  if (!enemy.tip) return;
+  run.tip = { text: enemy.tip, name: enemy.name, from: now + 0.5, until: now + 0.5 + TIP_TIME };
+  run.state.tips.push({ id: enemy.id, name: enemy.name, text: enemy.tip });
+}
+
 function finish(result, now) {
   run.result = result;
   run.phase = "end";
-  run.phaseUntil = now + 2.4;
+  run.phaseUntil = now + (result === "win" ? TIP_TIME + 0.4 : 2.4);
   clearPending();
   if (result === "win") {
     setHero("win", now, 99);
@@ -197,12 +207,13 @@ function press(key, now) {
   playSe(grade);
   if (killed) {
     clearPending();
+    showTip(now); // 倒した敵の豆知識を、1行だけ出す
     run.downAt = now + 0.2; // 三日月がとどいてから、たおれる
-    if (run.state.enemyIndex === ENEMIES.length - 1) {
+    if (run.state.enemyIndex === run.state.recipe.enemies.length - 1) {
       finish("win", now);
     } else {
       run.phase = "down";
-      run.phaseUntil = now + 1.5;
+      run.phaseUntil = now + TIP_TIME + 0.4; // 豆知識を読む時間を、とる
     }
   }
 }
@@ -211,7 +222,7 @@ function update(now) {
   const r = run;
   if (r.phase === "fight") {
     while (r.nextBar * BAR - now < LOOKAHEAD) {
-      const bar = makeBar(ENEMIES[r.state.enemyIndex], r.nextBar * BAR, r.lastPattern);
+      const bar = makeBar(enemyOf(r.state), r.nextBar * BAR, r.lastPattern);
       r.lastPattern = bar.index;
       r.notes.push(...bar.notes);
       r.nextBar += 1;
@@ -227,7 +238,7 @@ function update(now) {
     r.enemyUntil = 0;
     r.lastPattern = -1;
     r.nextBar = Math.ceil((now + 2) / BAR);
-    r.banner = { text: ENEMIES[r.state.enemyIndex].step, from: now, until: now + 2.5 };
+    r.banner = { text: enemyOf(r.state).step, from: now, until: now + 2.5 };
   } else if (r.phase === "end" && now >= r.phaseUntil) {
     showResult();
     return false;
@@ -238,7 +249,7 @@ function update(now) {
     playSe("down");
   }
   if (r.pendingHit && now >= r.pendingHit) {
-    const fx = ENEMY_FX[ENEMIES[r.state.enemyIndex].id];
+    const fx = ENEMY_FX[enemyOf(r.state).id];
     const big = r.pendingGrade === "perfect";
     r.pendingHit = 0;
     r.hitAt = now;
@@ -563,7 +574,7 @@ function draw(now) {
   fitCanvas();
   const r = run;
   const s = r.state;
-  const enemy = ENEMIES[s.enemyIndex];
+  const enemy = enemyOf(s);
   const dt = r.lastFrame ? Math.min(0.1, now - r.lastFrame) : 0;
   r.lastFrame = now;
   const bounce = Math.sin(now * 2.1) * 1.5; // ゆっくりした呼吸だけ。拍ごとのゆれは、ちらつくのでやめた
@@ -621,9 +632,30 @@ function draw(now) {
   g.font = "bold 16px sans-serif";
   g.textAlign = "right";
   g.fillStyle = "#4a2c17";
-  g.fillText(`${s.enemyIndex + 1} / ${ENEMIES.length}`, W - 24, 82);
+  g.fillText(`${s.enemyIndex + 1} / ${s.recipe.enemies.length}`, W - 24, 82);
 
   drawBoard(r, now);
+
+  // 豆知識(カウンターの上の、あいている場所に、1行だけ)
+  if (r.tip && now >= r.tip.from && now < r.tip.until) {
+    const t = now - r.tip.from;
+    g.save();
+    g.globalAlpha = Math.min(1, t * 4, (r.tip.until - now) * 3);
+    g.fillStyle = "#fff4d8";
+    g.strokeStyle = INK;
+    g.lineWidth = 3;
+    roundRect(60, 438, W - 120, 72, 22);
+    g.fill();
+    g.stroke();
+    g.fillStyle = "#e8472f";
+    g.font = "bold 15px sans-serif";
+    g.textAlign = "left";
+    g.fillText(`ワンポイント　${r.tip.name}`, 86, 464);
+    g.fillStyle = INK;
+    g.font = "bold 24px sans-serif";
+    g.fillText(r.tip.text, 86, 497);
+    g.restore();
+  }
 
   // 判定の文字
   for (const p of r.popups) {

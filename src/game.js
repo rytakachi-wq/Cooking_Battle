@@ -1,5 +1,7 @@
 // ゲームのルール(画面や音には触らない)。得点・体力・敵ごとの矢印の並びを決める。
 
+import { DEFAULT_RECIPE } from "./recipes.js";
+
 export const BPM = 120;
 export const BEAT = 60 / BPM; // 1拍の秒数
 export const BAR_BEATS = 4; // 1小節の拍数
@@ -18,72 +20,10 @@ export const ARROW_GLYPH = { L: "←", U: "↑", R: "→", D: "↓" };
 // あとから足す操作。いまは押されても何も起きない(scheme.md の「キー（追加）」を参照)。
 export const EXTRA_KEYS = { Numpad0: "attack", NumpadEnter: "jump" };
 
-// 敵(料理の手順の順)。patterns は、1小節(4拍)の中で押す矢印の並び。[拍の位置, 矢印]。
-// 敵ごとに2〜4個。どの並びも拍の頭か半拍で、1小節に収まる。同じ敵の中ではおなじ「ぶんいき」にする。
-export const ENEMIES = [
-  {
-    id: "egg",
-    name: "卵",
-    step: "① 卵を割れ！",
-    hp: 90,
-    patterns: [
-      [[0, "L"], [2, "R"]],
-      [[0, "L"], [1.5, "R"]],
-      [[1, "L"], [3, "R"]],
-    ],
-  },
-  {
-    id: "milk",
-    name: "牛乳",
-    step: "② 牛乳を注げ！",
-    hp: 120,
-    patterns: [
-      [[0, "D"], [1, "D"], [3, "U"]],
-      [[0, "D"], [2, "D"], [3, "U"]],
-      [[0, "D"], [1.5, "D"], [3, "U"]],
-    ],
-  },
-  {
-    id: "mix",
-    name: "ホットケーキミックス",
-    step: "③ ミックスを混ぜろ！",
-    hp: 120,
-    // ちょっとだけ簡単に:4個の並びは1つにして、あとは3個(まわす向きは そのまま)
-    patterns: [
-      [[0, "L"], [1, "U"], [2, "R"], [3, "D"]],
-      [[0, "L"], [1, "U"], [2, "R"]],
-      [[0, "R"], [1, "U"], [2, "L"]],
-      [[0, "U"], [2, "R"], [3, "D"]],
-    ],
-  },
-  {
-    id: "butter",
-    name: "バター",
-    step: "④ バターで焼け！",
-    hp: 140,
-    patterns: [
-      [[0, "U"], [1, "R"], [2.5, "D"]],
-      [[0, "U"], [2, "R"], [3, "D"]],
-      [[0, "U"], [1.5, "R"], [3, "D"]],
-    ],
-  },
-  {
-    id: "syrup",
-    name: "メープルシロップ",
-    step: "⑤ ラスボス！ シロップをかけろ！",
-    hp: 240,
-    boss: true,
-    patterns: [
-      [[0, "L"], [1, "D"], [2, "U"], [3, "R"]],
-      [[0, "L"], [0.5, "L"], [2, "D"], [3, "U"]],
-      [[0, "D"], [1, "R"], [2, "U"], [2.5, "L"]],
-      [[0, "R"], [1.5, "D"], [2, "L"], [3, "U"]],
-    ],
-  },
-];
-
-export function createState() {
+export function createState(recipe = DEFAULT_RECIPE) {
   return {
+    recipe,
+    tips: [], // 出てきた豆知識(結果画面で見返す)
     score: 0,
     combo: 0,
     maxCombo: 0,
@@ -92,7 +32,7 @@ export function createState() {
     miss: 0,
     playerHp: PLAYER_HP,
     enemyIndex: 0,
-    enemyHp: ENEMIES[0].hp,
+    enemyHp: recipe.enemies[0].hp,
   };
 }
 
@@ -139,9 +79,9 @@ export function registerMiss(state) {
 
 // つぎの敵へ。もう敵がいなければ false。
 export function nextEnemy(state) {
-  if (state.enemyIndex >= ENEMIES.length - 1) return false;
+  if (state.enemyIndex >= state.recipe.enemies.length - 1) return false;
   state.enemyIndex += 1;
-  state.enemyHp = ENEMIES[state.enemyIndex].hp;
+  state.enemyHp = state.recipe.enemies[state.enemyIndex].hp;
   return true;
 }
 
@@ -156,4 +96,8 @@ export function rank(state) {
   if (a >= 0.85) return "A";
   if (a >= 0.7) return "B";
   return "C";
+}
+
+export function enemyOf(state) {
+  return state.recipe.enemies[state.enemyIndex];
 }
