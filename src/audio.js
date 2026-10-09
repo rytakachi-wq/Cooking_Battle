@@ -2,7 +2,7 @@
 // ブラウザの決まりで、画面を1回さわるまでは音を出せない。unlock() をクリックやキーで呼ぶ。
 // 判定は、この AudioContext の時計(songTime)を基準にする。
 
-import { BPM, BEAT, BAR } from "./game.js";
+import { TRACKS } from "./bgm.js";
 
 const SETTINGS_KEY = "cookingBattle.settings";
 
@@ -10,10 +10,12 @@ let ctx = null;
 let master = null;
 let noise = null;
 let muted = false;
-let startAt = 0;
-let nextBarToSchedule = 0;
+let zero = 0; // 曲の時計の 0秒(audio時計の 秒)。あたらしい ゲームの はじめに 決める
+let clockOn = false;
+let seg = null; // いま ながれている 曲 {name, bpm, beat, bar, t0(曲の時計で、はじまる 秒), flavor, scheduled}
 let timer = null;
 let playing = false;
+let watching = true;
 let songBus = null; // BGMだけをまとめる音量つまみ。曲をとめるときに、まるごと切りはなす
 let sources = []; // 予約したBGMの音。曲をとめるときに、ぜんぶ止める
 
@@ -103,78 +105,109 @@ function hiss(when, length, { volume = 0.1, freq = 7000, bus = null } = {}) {
 
 const midi = (n) => 440 * 2 ** ((n - 69) / 12);
 
-// コード進行(C → Am → F → G)。1小節ずつ。
-const ROOTS = [48, 45, 41, 43];
-const MELODY = [
-  [0, 4, 7, 4, 9, 7, 4, 2],
-  [0, 3, 7, 3, 7, 10, 7, 3],
-  [0, 4, 9, 4, 7, 4, 0, 4],
-  [2, 7, 11, 7, 14, 11, 7, 2],
-];
-
-// 1小節ぶんの音を、時刻を決めて予約する。
-function scheduleBar(bar) {
-  const t0 = startAt + bar * BAR;
-  const root = ROOTS[bar % 4];
-  for (let b = 0; b < 4; b += 1) {
-    const t = t0 + b * BEAT;
-    tone(120, t, 0.2, { type: "sine", volume: 0.9, to: 42, bus: songBus }); // キック(拍の頭がはっきりわかるように、大きめ)
-    if (b % 2 === 1) hiss(t, 0.14, { volume: 0.3, freq: 2000, bus: songBus }); // スネア
-  }
-  // ベースは、4分音符(拍の頭)。ハイハットは、拍の頭を はっきり、あいだは ごく小さく
-  for (let b = 0; b < 4; b += 1) {
-    const t = t0 + b * BEAT;
-    const note = b === 2 ? root - 5 : root; // 3拍めだけ、すこし ひくい音
-    tone(midi(note - 12), t, BEAT - 0.05, { type: "triangle", volume: 0.34, bus: songBus });
-    hiss(t, 0.05, { volume: 0.12, bus: songBus });
-    hiss(t + BEAT / 2, 0.03, { volume: 0.035, bus: songBus });
-    // 表拍(拍の頭)は 高い音、裏拍(半拍)は 低い音。矢印の「半拍」の ものさしと そろえる
-    tone(1568, t, 0.09, { type: "triangle", volume: 0.55, bus: songBus });
-    tone(1568, t, 0.04, { type: "square", volume: 0.16, bus: songBus });
-    tone(587, t + BEAT / 2, 0.11, { type: "square", volume: 0.26, bus: songBus });
-    tone(294, t + BEAT / 2, 0.12, { type: "triangle", volume: 0.7, bus: songBus });
-  }
-  // メロディは、1拍ごと(ゆっくり)。拍をじゃましない
-  for (let h = 0; h < 4; h += 1) {
-    tone(midi(root + 12 + MELODY[bar % 4][h * 2]), t0 + h * BEAT, BEAT * 0.9, { type: "square", volume: 0.028, bus: songBus });
-  }
-}
+// 曲(bgm.js)に わたす 楽器。いまの曲の つなぎ(songBus)に つながる
+const inst = {
+  midi,
+  tone: (f, when, len, opts = {}) => tone(f, when, len, { ...opts, bus: songBus }),
+  hiss: (when, len, opts = {}) => hiss(when, len, { ...opts, bus: songBus }),
+};
 
 // ゲームの画面が動いているあいだ、毎フレーム呼ぶ。3秒よばれなかったら、BGMだけが鳴りつづけないよう、自分で止める。
+// (表紙・結果は 画面が うごかないので、watch(false) にして、止めない)
 let lastAlive = 0;
 export function alive() {
   lastAlive = performance.now();
 }
 
+export function watch(on) {
+  watching = on;
+  alive();
+}
+
 function pump() {
-  if (!playing) return;
-  if (performance.now() - lastAlive > 3000) {
+  if (!playing || !seg || !songBus) return;
+  if (watching && performance.now() - lastAlive > 3000) {
     stopSong();
     return;
   }
-  while (startAt + nextBarToSchedule * BAR < ctx.currentTime + 1.5) {
-    scheduleBar(nextBarToSchedule);
-    nextBarToSchedule += 1;
+  const horizon = ctx.currentTime + 1.5;
+  while (zero + seg.t0 + seg.scheduled * seg.bar < horizon) {
+    TRACKS[seg.name](zero + seg.t0 + seg.scheduled * seg.bar, seg, seg.scheduled, inst);
+    seg.scheduled += 1;
   }
 }
 
-// 曲の頭(0秒)を、すぐあとにして流しはじめる。
+// 曲の時計を、まだ 動かして いなければ、動かす(表紙の 曲)
+function ensureClock() {
+  if (clockOn) return;
+  zero = ctx.currentTime + 0.15;
+  haveDrift = false;
+  clockOn = true;
+}
+
+// あたらしい ゲームの はじまり:曲の時計を 0に もどす(曲は、playTrack で はじめる)
 export function startSong() {
   if (!ctx) return;
   stopSong();
+  zero = ctx.currentTime + 0.15;
+  haveDrift = false;
+  clockOn = true;
+  watching = true;
+  alive();
+}
+
+// 曲を かえる。at は、曲の時計での はじまりの 秒(なければ、すぐ あと)。まえの曲は、すぐ 小さくして きえる。
+// かえす 値:いまの曲の {beat, bar, t0, ...}(矢印の 拍を これに そろえる)
+export function playTrack(name, bpm, at, flavor = "") {
+  if (!ctx || !master || !TRACKS[name]) return null;
+  ensureClock();
+  fadeOut();
   songBus = ctx.createGain();
   songBus.connect(master);
-  alive();
-  startAt = ctx.currentTime + 0.15;
-  haveDrift = false;
-  nextBarToSchedule = 0;
+  seg = { name, bpm, beat: 60 / bpm, bar: 240 / bpm, t0: at ?? songTime() + 0.25, flavor, scheduled: 0 };
   playing = true;
+  if (!timer) timer = setInterval(pump, 250);
   pump();
-  timer = setInterval(pump, 250);
+  return seg;
+}
+
+export function trackName() {
+  return seg?.name ?? "";
+}
+
+export function currentTrack() {
+  return seg;
+}
+
+// まえの曲を、すぐ 小さくして 止める(あたらしい曲と かさならない)
+function fadeOut() {
+  if (!songBus) return;
+  const bus = songBus;
+  const olds = sources;
+  sources = [];
+  const now = ctx.currentTime;
+  bus.gain.cancelScheduledValues(now);
+  bus.gain.setTargetAtTime(0, now, 0.03);
+  for (const source of olds) {
+    try {
+      source.stop(now + 0.15);
+    } catch {
+      // もう止まっているものは、そのまま。
+    }
+  }
+  setTimeout(() => {
+    try {
+      bus.disconnect();
+    } catch {
+      // すでに はずれている
+    }
+  }, 400);
+  songBus = null;
 }
 
 export function stopSong() {
   playing = false;
+  seg = null;
   clearInterval(timer);
   timer = null;
   // 予約ずみの音を、ぜんぶ止めて、BGMのつなぎも切る(これで、ゲームが終わったあとに鳴り続けることはない)
@@ -222,7 +255,7 @@ export function songTime(perfMs) {
     measureDrift();
     perfMs = performance.now();
   }
-  return perfMs / 1000 + drift - startAt + offsetMs / 1000;
+  return perfMs / 1000 + drift - zero + offsetMs / 1000;
 }
 
 // 聞こえる音と矢印のずれを、利用者が直せる(ミリ秒)。プラスにすると、矢印が はやく 枠に着く。
@@ -233,10 +266,6 @@ export function getOffset() {
 export function setOffset(ms) {
   offsetMs = Math.max(-200, Math.min(200, Math.round(ms)));
   saveSettings();
-}
-
-export function bpm() {
-  return BPM;
 }
 
 // 効果音

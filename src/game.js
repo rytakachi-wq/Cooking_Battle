@@ -55,14 +55,17 @@ export function judge(diff) {
 }
 
 // 1小節ぶんの音符を作る。前回と同じ並びは続けて出さない。
-export function makeBar(enemy, barStart, lastPattern = -1, random = Math.random) {
+// beatLen・barLen:その敵の 曲の 1拍・1小節の 秒数(テンポは 敵ごとに ちがう)。round:なん組めか(注文カードで まとめる 目じるし)
+export function makeBar(enemy, barStart, lastPattern = -1, random = Math.random, beatLen = BEAT, barLen = BAR, round = Math.round(barStart / BAR)) {
   const choices = enemy.patterns.map((_, i) => i).filter((i) => i !== lastPattern);
   const index = choices[Math.floor(random() * choices.length)];
-  const bar = Math.round(barStart / BAR);
+  const bar = round;
   const notes = enemy.patterns[index].map(([beat, key], slot) => ({
-    time: barStart + beat * BEAT,
+    time: barStart + beat * beatLen,
+    respStart: barStart, // まねして おす 小節の はじまり
+    callStart: barStart - barLen, // 敵が やって見せる 小節の はじまり
     beat, // 小節の中の拍の位置(0〜2.5)。注文カードの ものさしの上に ならべる
-    callAt: barStart + beat * BEAT - BAR, // 敵が、おなじ矢印を やって見せる時刻(1小節まえ)
+    callAt: barStart + beat * beatLen - barLen, // 敵が、おなじ矢印を やって見せる時刻(1小節まえ)
     key,
     bar, // 何小節めか(注文カードで、同じ小節の矢印をまとめて見せる)
     slot, // 小節の中で何番めか

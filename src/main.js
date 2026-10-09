@@ -19,7 +19,7 @@ import {
   registerHit,
   registerMiss,
 } from "./game.js";
-import { activeSources, alive, cueAtSongTime, restCueAtSongTime, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
+import { activeSources, alive, cueAtSongTime, restCueAtSongTime, playTrack, trackName, watch, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import * as Q from "./quiz.js";
 import { drawActionFx, drawQuizScene } from "./scenes.js";
@@ -93,6 +93,23 @@ function toggleMute() {
   showMute();
 }
 
+// 表紙・結果の 曲(画面が 動かない 場面なので、自動で 止めない)
+let menuTrack = { name: "cover", bpm: 108 };
+function playMenuTrack(name, bpm) {
+  menuTrack = { name, bpm };
+  watch(false);
+  if (trackName() !== name) playTrack(name, bpm);
+}
+// 音が ならせるように なったとき(はじめて さわったあと)・画面が もどってきたとき、いまの場面の 曲を 流す
+function syncMenuMusic() {
+  if (run || tut) {
+    if (tut && trackName() !== menuTrack.name) playMenuTrack(menuTrack.name, menuTrack.bpm);
+    return;
+  }
+  if (screens.cover.hidden && screens.result.hidden) return;
+  playMenuTrack(menuTrack.name, menuTrack.bpm);
+}
+
 function showCover() {
   const stats = loadStats();
   $("best").textContent = stats.plays
@@ -100,6 +117,7 @@ function showCover() {
     : "";
   showMute();
   show("cover");
+  playMenuTrack("cover", 108);
 }
 
 // --- 遊びの状態 ---
@@ -114,10 +132,14 @@ function begin() {
   }
   unlock();
   startSong();
+  playTrack("quiz", 100, songTime() + 0.3);
+  watch(true);
   run = {
     state: createState(),
     notes: [],
     restCues: [], // 矢印の ない拍の、専用の音
+    seg: null, // いまの敵の 曲({t0, beat, bar})
+    round: 0,
     nextBar: 0,
     lastPattern: -1,
     phase: "quiz", // quiz(えらぶ) / fight(リズム) / down(倒したあと) / end
@@ -211,6 +233,7 @@ function nextQuiz(now = songTime()) {
 }
 
 function openQuiz(def, failKey, now = songTime(), left = 1) {
+  if (trackName() !== "quiz") playTrack("quiz", 100, now + 0.25);
   clearPending();
   run.notes = [];
   run.phase = "quiz";
@@ -346,8 +369,13 @@ function endQuiz(now = songTime()) {
   }
   run.phase = "fight";
   run.lastPattern = -1;
-  run.nextBar = Math.ceil((now + 2) / BAR);
-  run.banner = { text: enemyOf(run.state).step, from: now, until: now + 2.5 };
+  // その敵の テンポの 曲を はじめる。矢印の 拍は、この曲の 小節に そろえる(1小節めは じゅんびの 小節)
+  const foe = enemyOf(run.state);
+  const bpm = foe.bpm ?? 120;
+  run.seg = { t0: now + 0.35, bpm, beat: 60 / bpm, bar: 240 / bpm };
+  playTrack(foe.boss ? "boss" : "fight", bpm, run.seg.t0, foe.id);
+  run.nextBar = 1;
+  run.banner = { text: foe.step, from: now, until: now + 2.5 };
   if (run.state.fails[enemyOf(run.state).id]) {
     run.popups.push({ text: "パワーアップ！", color: "#e8472f", x: 770, y: 150, from: now, big: true });
   }
@@ -569,8 +597,12 @@ function update(now) {
   if (r.phase === "quiz" && r.quiz) updateQuiz(now);
   if (r.phase === "fight") {
     // 2小節で1組:はじめの小節で、敵が やって見せ、つぎの小節で、プレイヤーが まねして おす(おすのは、あとの小節)
-    while (r.nextBar * BAR - now < LOOKAHEAD) {
-      const bar = makeBar(enemyOf(r.state), (r.nextBar + 1) * BAR, r.lastPattern);
+    const seg = r.seg;
+    while (seg.t0 + r.nextBar * seg.bar - now < LOOKAHEAD) {
+      const callStart = seg.t0 + r.nextBar * seg.bar;
+      const respStart = callStart + seg.bar;
+      const bar = makeBar(enemyOf(r.state), respStart, r.lastPattern, Math.random, seg.beat, seg.bar, r.round);
+      r.round += 1;
       r.lastPattern = bar.index;
       const steps = r.state.steps[enemyOf(r.state).id]; // いつも、正しい手順の名前
       for (const note of bar.notes) if (steps) note.label = steps[note.slot];
@@ -581,7 +613,7 @@ function update(now) {
         const p = k * 0.5;
         if (taken.has(p)) continue;
         const kind = p === 3 ? "end" : p % 1 === 0 ? "beat" : "half";
-        r.restCues.push({ time: r.nextBar * BAR + p * BEAT, kind, cued: false }, { time: (r.nextBar + 1) * BAR + p * BEAT, kind, cued: false });
+        r.restCues.push({ time: callStart + p * seg.beat, kind, cued: false }, { time: respStart + p * seg.beat, kind, cued: false });
       }
       r.nextBar += 2;
     }
@@ -657,7 +689,6 @@ function showResult() {
   const s = r.state;
   const grade = rank(s);
   const { isRecord } = recordPlay({ score: s.score, won, rank: grade });
-  stopSong();
   cancelAnimationFrame(frame);
   run = null;
   $("r-title").textContent = won ? "ホットケーキ かんせい！" : "ざんねん… もういちど！";
@@ -674,6 +705,7 @@ function showResult() {
   $("r-record").hidden = !isRecord;
   showReview(s);
   show("result");
+  playMenuTrack(won ? "result_win" : "result_lose", won ? 120 : 90);
 }
 
 // --- 描画 ---
@@ -791,14 +823,16 @@ function boardState(r, now) {
   if (!live.length) return null;
   const bar = Math.min(...live.map((n) => n.bar));
   const group = r.notes.filter((n) => n.bar === bar && n.status !== "cancel").sort((a, b) => a.slot - b.slot);
-  const respStart = bar * BAR;
-  const callStart = respStart - BAR;
+  const respStart = group[0].respStart;
+  const callStart = group[0].callStart;
+  const barLen = respStart - callStart;
   return {
     group,
     callStart,
     respStart,
     calling: now >= callStart && now < respStart,
-    responding: now >= respStart && now < respStart + BAR,
+    responding: now >= respStart && now < respStart + barLen,
+    beat: barLen / 4,
   };
 }
 
@@ -858,7 +892,7 @@ function drawBoard(r, now) {
     g.fillText("ちゅうもん", cx - 150, cy - 22);
     return;
   }
-  const { group, callStart, respStart, responding } = st;
+  const { group, callStart, respStart, responding, beat: beatLen } = st;
 
   // ききましょう(おせない) / まねして！
   g.save();
@@ -945,7 +979,7 @@ function drawBoard(r, now) {
   // 矢印のお皿は、この ものさしの 上に ならぶ。小さい丸の上にある矢印は、半拍の矢印。
   const ty = cy + 80;
   const phaseStart = calling ? callStart : respStart;
-  const active = calling || responding ? Math.floor((now - phaseStart) / (BEAT / 2)) : -1;
+  const active = calling || responding ? Math.floor((now - phaseStart) / (beatLen / 2)) : -1;
   const noteAt = (p) => group.find((n) => Math.abs(n.beat - p) < 0.01);
   for (let k = 0; k <= 6; k += 1) {
     const p = k * 0.5;
@@ -1650,6 +1684,8 @@ function tutCopy(t) {
     label: labels[i],
     time: BAR + b * BEAT,
     callAt: b * BEAT,
+    respStart: BAR,
+    callStart: 0,
     status: t >= BAR + b * BEAT ? "hit" : "pending",
     hitAt: BAR + b * BEAT,
   }));
@@ -1723,6 +1759,7 @@ function tutMistake(t) {
 // --- 入力 ---
 window.addEventListener("keydown", (event) => {
   unlock();
+  syncMenuMusic();
   if (event.code === "Escape" && tut) {
     endTutorial();
     return;
@@ -1763,7 +1800,10 @@ window.addEventListener("keydown", (event) => {
   if (EXTRA_KEYS[event.code]) event.preventDefault();
 });
 
-window.addEventListener("pointerdown", unlock);
+window.addEventListener("pointerdown", () => {
+  unlock();
+  syncMenuMusic();
+});
 
 $("btn-start").addEventListener("click", () => {
   unlock();
@@ -1845,13 +1885,18 @@ canvas.addEventListener("pointercancel", () => {
 
 // 画面がかくれたら、ゲームをやめて、BGMも止める(のこらないように)
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden && run) quitToCover();
+  if (document.hidden) {
+    if (run) quitToCover();
+    stopSong();
+  } else {
+    syncMenuMusic();
+  }
 });
 window.addEventListener("pagehide", stopSong);
 
 // 動作確認用。アドレスの最後に ?debug をつけたときだけ、外から中をのぞける。
 if (location.search.includes("debug")) {
-  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, chooseAt, endQuiz, undoChoice, confirmQuiz, drawTutorial, getTut: () => tut, startTutorial, endTutorial, fitCanvas };
+  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, chooseAt, endQuiz, undoChoice, confirmQuiz, drawTutorial, getTut: () => tut, startTutorial, endTutorial, fitCanvas, trackName };
 }
 
 loadImages().then(() => {
