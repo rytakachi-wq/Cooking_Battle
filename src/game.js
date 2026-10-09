@@ -56,6 +56,7 @@ export function makeBar(enemy, barStart, lastPattern = -1, random = Math.random)
   const bar = Math.round(barStart / BAR);
   const notes = enemy.patterns[index].map(([beat, key], slot) => ({
     time: barStart + beat * BEAT,
+    beat, // 小節の中の拍の位置(0〜2.5)。注文カードの ものさしの上に ならべる
     callAt: barStart + beat * BEAT - BAR, // 敵が、おなじ矢印を やって見せる時刻(1小節まえ)
     key,
     bar, // 何小節めか(注文カードで、同じ小節の矢印をまとめて見せる)

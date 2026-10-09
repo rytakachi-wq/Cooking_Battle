@@ -30,7 +30,7 @@ const H = 540;
 // false のあいだは、通常の絵に、コードでかざりを重ねる。
 const STRONG_ART = false;
 const LUNGE = 60; // 主人公が、こうげきで前に出る大きさ(大きく動くと目が疲れるので、小さめ)
-const BOARD = { cx: 470, cy: 184, gap: 80, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
+const BOARD = { cx: 470, cy: 176, gap: 80, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
 const TIP_TIME = 3.2; // 豆知識を出している秒数(1行を、ゆっくり読める長さ)
 const LOOKAHEAD = 2.6; // 何秒さきまで、矢印を作っておくか
 
@@ -263,6 +263,7 @@ function choose(i) {
     return;
   }
   q.answered = true;
+  q.answeredAt = songTime();
   const result = answerQuiz(run.state, q.def, q.items, q.order, q.failKey);
   q.result = result;
   layoutQuiz();
@@ -664,19 +665,21 @@ function drawLid(x, y) {
 }
 
 function drawBoard(r, now) {
-  const { cx, cy, gap, r: pr } = BOARD;
+  const { cx, cy } = BOARD;
   const st = boardState(r, now);
   const calling = st?.calling === true;
+  // 拍の位置 → よこの位置。1拍=74ピクセル。0〜2.5拍が「うごく」3拍、3拍めの位置が「休み」
+  const X = (p) => cx - 111 + p * 74;
 
   // カード(ききましょう=青、まねして=あたたかい色)
   g.save();
   g.fillStyle = "rgba(74,44,23,0.18)";
-  roundRect(cx - 168, cy - 36, 336, 128, 26);
+  roundRect(cx - 168, cy - 36, 336, 140, 26);
   g.fill();
   g.fillStyle = calling ? "#dfe9f6" : "#fff4d8";
   g.strokeStyle = calling ? "#5b7aa3" : INK;
   g.lineWidth = 3;
-  roundRect(cx - 168, cy - 42, 336, 128, 26);
+  roundRect(cx - 168, cy - 42, 336, 140, 26);
   g.fill();
   g.stroke();
   g.restore();
@@ -697,17 +700,21 @@ function drawBoard(r, now) {
     drawLid(cx - 146, cy - 28);
     g.textAlign = "left";
     g.fillStyle = "#3d5f8f";
-    g.fillText("ききましょう ♪  (ふたを してあるよ)", cx - 116, cy - 20);
+    g.fillText("ききましょう ♪  (ふたを してあるよ)", cx - 116, cy - 22);
   } else {
     g.textAlign = "left";
     g.fillStyle = responding ? "#e8472f" : "rgba(74,44,23,0.55)";
-    g.fillText(responding ? "まねして おそう！" : "ちゅうもん", cx - 150, cy - 20);
+    g.fillText(responding ? "まねして おそう！" : "ちゅうもん", cx - 150, cy - 22);
   }
   g.restore();
 
+  // 半拍(0.5拍)ずれた矢印が あるときは、お皿を ちいさくして、ならべる
+  const tight = group.some((a, i) => group.some((b, j) => j > i && Math.abs(a.beat - b.beat) < 1));
+  const pr = tight ? 17 : 24;
+  const y = cy + 6;
+
   group.forEach((note, i) => {
-    const x = cx + (i - (group.length - 1) / 2) * gap;
-    const y = cy + 16;
+    const x = X(note.beat);
     const since = now - note.callAt;
     const lit = calling && since >= 0 && since < 0.4; // 敵が、いま やって見せている
     if (lit) {
@@ -715,17 +722,19 @@ function drawBoard(r, now) {
       g.globalAlpha = 0.6 * (1 - since / 0.4);
       g.fillStyle = "#ffd23f";
       g.beginPath();
-      g.arc(x, y, pr + 14 - since * 10, 0, Math.PI * 2);
+      g.arc(x, y, pr + 12 - since * 10, 0, Math.PI * 2);
       g.fill();
       g.restore();
     }
     if (note.label) {
+      // ちかい矢印の名前は、たてに ずらして、かさならないように
+      const near = group.some((o) => o !== note && o.slot < note.slot && Math.abs(o.beat - note.beat) < 1);
       g.save();
       g.fillStyle = calling ? "#3d5f8f" : INK;
-      g.font = lit ? "bold 15px sans-serif" : "bold 13px sans-serif";
+      g.font = lit ? "bold 14px sans-serif" : "bold 12px sans-serif";
       g.textAlign = "center";
       g.globalAlpha = note.status === "miss" ? 0.45 : 1;
-      g.fillText(note.label, x, y + pr + 18, gap - 6);
+      g.fillText(note.label, x, y + pr + (near ? 31 : 17), 76);
       g.restore();
     }
     if (note.status === "hit") {
@@ -747,45 +756,57 @@ function drawBoard(r, now) {
       // ききましょうのあいだは、お皿を すこし うすくして、「いまは見るだけ」と わかるようにする
       drawPlate(note.key, x, y, lit ? pr * 1.12 : pr, "pending", calling && !lit ? 0.7 : 1);
     }
-  });
-
-  // 順番の数字(1・2・3…)。敵が やって見せるとき、いま何番めかが わかる
-  group.forEach((note, i) => {
-    const x = cx + (i - (group.length - 1) / 2) * gap - pr + 2;
-    const y = cy + 16 - pr + 2;
-    const lit = calling && now - note.callAt >= 0 && now - note.callAt < 0.4;
+    // 順番の数字(1・2・3…)
+    const bx = x - pr + 1;
+    const by = y - pr + 1;
     g.beginPath();
-    g.arc(x, y, lit ? 11 : 9, 0, Math.PI * 2);
+    g.arc(bx, by, lit ? 10 : 8, 0, Math.PI * 2);
     g.fillStyle = lit ? "#e8472f" : "#fff";
     g.fill();
     g.lineWidth = 2;
     g.strokeStyle = INK;
     g.stroke();
     g.fillStyle = lit ? "#fff" : INK;
-    g.font = "bold 12px sans-serif";
+    g.font = "bold 11px sans-serif";
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.fillText(String(i + 1), x, y + 1);
+    g.fillText(String(i + 1), bx, by + 1);
     g.textBaseline = "alphabetic";
   });
 
-  // 拍のランプ(1・2・3・休)。4拍めは、やすみ(一拍おく)。BGM(game.js の BPM)と、おなじ時計・おなじテンポで動く
-  if (calling || responding) {
-    const beat = Math.floor((now - (calling ? callStart : respStart)) / BEAT);
-    for (let b = 0; b < 4; b += 1) {
-      const x = cx + (b - 1.5) * 28;
-      const y = cy + 77;
-      const on = b === beat;
+  // 拍の ものさし。大きい丸=拍(1・2・3・休)、小さい丸=その あいだの 半拍(0.5)。
+  // 矢印のお皿は、この ものさしの 上に ならぶ。小さい丸の上にある矢印は、半拍の矢印。
+  const ty = cy + 80;
+  const phaseStart = calling ? callStart : respStart;
+  const active = calling || responding ? Math.floor((now - phaseStart) / (BEAT / 2)) : -1;
+  const noteAt = (p) => group.find((n) => Math.abs(n.beat - p) < 0.01);
+  for (let k = 0; k <= 6; k += 1) {
+    const p = k * 0.5;
+    const x = X(p);
+    const on = k === active;
+    const note = noteAt(p);
+    if (k % 2 === 0) {
+      const b = k / 2; // 0,1,2,3 → 1・2・3・休
       g.beginPath();
-      g.arc(x, y, 9, 0, Math.PI * 2);
+      g.arc(x, ty, 9, 0, Math.PI * 2);
       g.fillStyle = on ? (b === 3 ? "#8a7f6f" : calling ? "#3d79d6" : "#e8472f") : "rgba(74,44,23,0.15)";
       g.fill();
-      g.fillStyle = on ? "#fff" : "rgba(74,44,23,0.45)";
+      g.fillStyle = on ? "#fff" : "rgba(74,44,23,0.5)";
       g.font = "bold 11px sans-serif";
       g.textAlign = "center";
       g.textBaseline = "middle";
-      g.fillText(b === 3 ? "休" : String(b + 1), x, y + 1);
+      g.fillText(b === 3 ? "休" : String(b + 1), x, ty + 1);
       g.textBaseline = "alphabetic";
+    } else {
+      g.beginPath();
+      g.arc(x, ty, note ? 6 : 3.5, 0, Math.PI * 2);
+      g.fillStyle = on ? (calling ? "#3d79d6" : "#e8472f") : note ? DIR_COLOR[note.key] : "rgba(74,44,23,0.28)";
+      g.fill();
+      if (note) {
+        g.lineWidth = 2;
+        g.strokeStyle = INK;
+        g.stroke();
+      }
     }
   }
 
@@ -889,6 +910,79 @@ function drawStrongFront(cx, bottom, w, h) {
   g.roundRect(0, -6, 38, 28, 8);
   g.fill();
   g.stroke();
+  g.restore();
+}
+
+// 手順ならべの答えあわせのあと、「つぎの敵」がどうなるかを見せる。
+// まちがえると、敵が大きく・つよい姿に変わり、体力がふえる(+15%)。ぜんぶ合っていれば、そのまま。
+function drawNextEnemyPreview(r, now) {
+  const q = r.quiz;
+  if (!q || !q.answered || !q.result) return;
+  const enemy = enemyOf(r.state);
+  const wrong = !q.result.correct;
+  const e = wrong ? Math.min(1, Math.max(0, now - (q.answeredAt ?? now)) / 0.7) : 0;
+  const ease = 1 - (1 - e) * (1 - e);
+  const x = 700;
+  const y = 96;
+  const w = 244;
+  const h = 224;
+
+  g.save();
+  g.fillStyle = "#fff4d8";
+  g.strokeStyle = wrong ? "#e8472f" : INK;
+  g.lineWidth = 4;
+  roundRect(x, y, w, h, 22);
+  g.fill();
+  g.stroke();
+  g.fillStyle = INK;
+  g.font = "bold 15px sans-serif";
+  g.textAlign = "left";
+  g.fillText(`つぎの敵：${enemy.name}`, x + 14, y + 26);
+
+  // 敵(まちがえたときは、大きく・強い姿に かわる)
+  const name = `${enemy.id}_normal`;
+  const img = images[name];
+  if (img && img.naturalHeight) {
+    const base = 118 / img.naturalHeight;
+    const k = 1 + 0.22 * ease;
+    const sc = base * k;
+    const cx = x + w / 2;
+    const bottom = y + 160;
+    const iw = img.naturalWidth * sc;
+    const ih = img.naturalHeight * sc;
+    if (wrong) {
+      g.globalAlpha = ease;
+      drawStrongBack(cx, bottom, iw, ih, now);
+      g.globalAlpha = 1;
+    }
+    g.drawImage(img, cx - iw / 2, bottom - ih, iw, ih);
+    if (wrong) {
+      g.globalAlpha = ease;
+      drawStrongFront(cx, bottom, iw, ih);
+      g.globalAlpha = 1;
+    }
+  }
+
+  // 体力
+  const from = enemy.hp;
+  const to = r.state.enemyMax;
+  const by = y + 176;
+  g.fillStyle = "rgba(0,0,0,0.2)";
+  g.fillRect(x + 14, by, w - 28, 14);
+  const full = w - 28;
+  g.fillStyle = "#ff6b6b";
+  g.fillRect(x + 14, by, full * (from / to + (1 - from / to) * ease), 14);
+  if (wrong) {
+    g.fillStyle = "#e8472f";
+    g.fillRect(x + 14 + full * (from / to), by, full * (1 - from / to) * ease, 14);
+  }
+  g.strokeStyle = INK;
+  g.lineWidth = 2;
+  g.strokeRect(x + 14, by, full, 14);
+  g.font = "bold 15px sans-serif";
+  g.textAlign = "center";
+  g.fillStyle = wrong ? "#e8472f" : "#2f9e44";
+  g.fillText(wrong ? `パワーアップ！ たいりょく ${from} → ${to}(+15%)` : `そのまま！ たいりょく ${from}`, x + w / 2, y + 212, w - 20);
   g.restore();
 }
 
@@ -1022,8 +1116,10 @@ function draw(now) {
   const target = r.phase === "down" || r.enemyPose === "down" || r.downAt ? 1 : 1 - s.enemyHp / s.enemyMax;
   r.shown += (target - r.shown) * Math.min(1, dt * 7);
   const inQuiz = r.phase === "quiz" && r.quiz;
-  if (inQuiz) drawQuizScene(g, r.quiz.failKey, now);
-  else drawStation(g, s.enemyIndex, r.shown, now, s.fails);
+  if (inQuiz) {
+    drawQuizScene(g, r.quiz.failKey, now);
+    drawNextEnemyPreview(r, now);
+  } else drawStation(g, s.enemyIndex, r.shown, now, s.fails);
 
   // 主人公:こうげきで前に出る
   const lunge = lungeAmount(now, r);
