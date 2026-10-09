@@ -191,7 +191,10 @@ function shuffle(list) {
 const ACTION_TIME = 1.0; // 1つの手順を やって見せる 秒数
 
 // 1つの手順の 問題を、じゅんに ならべる。1つめが「ほんとうの やりかた」(main)
-function quizzesFor(step, quizzes, failKey) {
+function quizzesFor(step, candidates, failKey) {
+  // 1つめは かならず。2つめ以降は、あそぶたびに ランダムで 0〜(のこり全部)問 出す → 1つの手順に、1〜3問
+  const extras = shuffle(candidates.slice(1));
+  const quizzes = [candidates[0], ...extras.slice(0, Math.floor(Math.random() * (extras.length + 1)))];
   return quizzes.map((quiz, index) => ({
     def: { step: quizzes.length > 1 ? `${step}  (${index + 1}/${quizzes.length})` : step, quiz, main: index === 0, variant: index },
     failKey,
