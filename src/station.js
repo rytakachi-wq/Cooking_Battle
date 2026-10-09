@@ -13,6 +13,45 @@ export const ENEMY_FX = {
 
 export const STATION = { x: 480, y: 392 }; // 調理台の中心(下のはし)
 
+// 他のAIが作った絵(assets/dish, assets/fail, assets/ui)。そろっているときは、コードの絵のかわりに つかう。
+let art = null;
+export function useArt(map) {
+  art = map;
+}
+function ready(name) {
+  const img = art?.[name];
+  return img && img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+// 料理の進み:段階ごとの「まえ→あと」の絵と、リズムのミスが多かったときに さしかえる しっぱいの絵
+const DISH = [
+  { id: "egg", from: "dish_bowl_empty", to: "dish_bowl_egg", failTo: "fail_shells" },
+  { id: "milk", from: "dish_bowl_egg", to: "dish_bowl_milk", extra: "fail_milk" },
+  { id: "mix", from: "dish_bowl_milk", to: "dish_bowl_batter", failTo: "fail_lumps" },
+  { id: "butter", from: "dish_pan_raw", to: "dish_pan_golden", failTo: "fail_burnt" },
+  { id: "syrup", from: "dish_plate_pancake", to: "dish_plate_syrup", failTo: "fail_syrup" },
+];
+const DISH_SCALE = 1.9; // 絵が小さいので、拡大して つかう(ぜんぶ おなじ倍率で、大きさのくらべが そろう)
+
+function putArt(g, name, alpha, dx = 0, scale = DISH_SCALE) {
+  const img = ready(name);
+  if (!img || alpha <= 0) return;
+  const w = img.naturalWidth * scale;
+  const h = img.naturalHeight * scale;
+  g.save();
+  g.globalAlpha = Math.min(1, alpha);
+  g.drawImage(img, STATION.x + dx - w / 2, STATION.y + 8 - h, w, h);
+  g.restore();
+}
+
+function stationArt(g, stage, p, t, fails) {
+  const s = DISH[stage];
+  const failed = fails[s.id] === true;
+  putArt(g, s.from, 1);
+  putArt(g, failed && s.failTo ? s.failTo : s.to, Math.min(1, p * 1.4));
+  if (failed && s.extra && p > 0.15) putArt(g, s.extra, Math.min(1, p * 2), 105);
+}
+
 const INK = "#4a2c17";
 
 function mix(a, b, t) {
@@ -345,6 +384,17 @@ function failures(g, stage, p, t, fails) {
 
 // 失敗した手順の、大きな「しっぱい！」。調理台の下の、あいている場所に出す。
 export function drawFailStamp(g, t) {
+  const stamp = ready("ui_stamp_fail");
+  if (stamp) {
+    const w = 190;
+    const h = (stamp.naturalHeight * w) / stamp.naturalWidth;
+    g.save();
+    g.translate(STATION.x, 472);
+    g.rotate(-0.1);
+    g.drawImage(stamp, -w / 2, -h / 2, w, h);
+    g.restore();
+    return;
+  }
   g.save();
   g.translate(STATION.x, 458);
   g.rotate(-0.1);
@@ -367,6 +417,10 @@ export function drawFailStamp(g, t) {
 
 // 調理台をえがく。stage は敵の番号(0〜4)、p は、いまの敵をどこまで倒したか(0〜1)。
 export function drawStation(g, stage, p, t, fails = {}) {
+  if (ready(DISH[stage].from) && ready(DISH[stage].to)) {
+    stationArt(g, stage, p, t, fails);
+    return;
+  }
   g.save();
   g.lineJoin = "round";
   if (stage <= 2) bowl(g, stage, p, t, fails);

@@ -22,14 +22,14 @@ import {
 import { activeSources, alive, cueAtSongTime, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import { drawQuizScene } from "./scenes.js";
-import { ENEMY_FX, STATION, drawFailStamp, drawStation } from "./station.js";
+import { ENEMY_FX, STATION, drawFailStamp, drawStation, useArt } from "./station.js";
 import { loadStats, recordPlay } from "./storage.js";
 
 const W = 960;
 const H = 540;
 // 強化形態の専用の絵(assets/chars/<食材>_strong_<ポーズ>.png)が そろったら true にする。
 // false のあいだは、通常の絵に、コードでかざりを重ねる。
-const STRONG_ART = false;
+const STRONG_ART = true;
 const LUNGE = 60; // 主人公が、こうげきで前に出る大きさ(大きく動くと目が疲れるので、小さめ)
 const BOARD = { cx: 470, cy: 176, gap: 80, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
 const TIP_TIME = 3.2; // 豆知識を出している秒数(1行を、ゆっくり読める長さ)
@@ -56,6 +56,16 @@ function loadImages() {
       images[`${who}_${pose}`] = img;
       jobs.push(img.decode().catch(() => {}));
     });
+  // 強化形態・料理の進み・しっぱい・かざりの絵(ファイル名=キー)
+  const addFile = (key, path) => {
+    const img = new Image();
+    img.src = `../assets/${path}`;
+    images[key] = img;
+    jobs.push(img.decode().catch(() => {}));
+  };
+  for (const name of ["dish_bowl_empty", "dish_bowl_egg", "dish_bowl_milk", "dish_bowl_batter", "dish_pan_raw", "dish_pan_golden", "dish_plate_pancake", "dish_plate_syrup"]) addFile(name, `dish/${name}.png`);
+  for (const name of ["fail_shells", "fail_milk", "fail_lumps", "fail_burnt", "fail_syrup"]) addFile(name, `fail/${name}.png`);
+  for (const name of ["ui_hand", "ui_lid", "ui_stamp_fail"]) addFile(name, `ui/${name}.png`);
   add("hero", POSES.hero);
   Object.values(RECIPES).forEach((recipe) =>
     recipe.enemies.forEach((enemy) => {
@@ -665,6 +675,13 @@ function boardState(r, now) {
 
 // 鍋のふた:「ふたをして ある」=いまは さわれない
 function drawLid(x, y) {
+  const lid = images.ui_lid;
+  if (lid && lid.complete && lid.naturalWidth) {
+    const h = 30;
+    const w = (lid.naturalWidth * h) / lid.naturalHeight;
+    g.drawImage(lid, x - w / 2, y - h / 2 + 2, w, h);
+    return;
+  }
   g.save();
   g.fillStyle = "#cfd5db";
   g.strokeStyle = "#5b7aa3";
@@ -962,7 +979,19 @@ function drawNextEnemyPreview(r, now) {
   // 敵(まちがえたときは、大きく・強い姿に かわる)
   const name = `${enemy.id}_normal`;
   const img = images[name];
-  if (img && img.naturalHeight) {
+  const strongImg = images[`${enemy.id}_strong_normal`];
+  if (wrong && STRONG_ART && strongImg && strongImg.naturalHeight && img && img.naturalHeight) {
+    const cx = x + w / 2;
+    const bottom = y + 164;
+    const fit = (im, maxH, maxW) => Math.min(maxH / im.naturalHeight, maxW / im.naturalWidth);
+    const s1 = fit(img, 118, 150) * (1 - 0.0 * ease);
+    const s2 = fit(strongImg, 136, 210) * (0.82 + 0.18 * ease);
+    g.globalAlpha = 1 - ease;
+    g.drawImage(img, cx - (img.naturalWidth * s1) / 2, bottom - img.naturalHeight * s1, img.naturalWidth * s1, img.naturalHeight * s1);
+    g.globalAlpha = ease;
+    g.drawImage(strongImg, cx - (strongImg.naturalWidth * s2) / 2, bottom - strongImg.naturalHeight * s2, strongImg.naturalWidth * s2, strongImg.naturalHeight * s2);
+    g.globalAlpha = 1;
+  } else if (img && img.naturalHeight) {
     const base = 118 / img.naturalHeight;
     const k = 1 + 0.22 * ease;
     const sc = base * k;
@@ -1004,6 +1033,15 @@ function drawNextEnemyPreview(r, now) {
   g.fillStyle = wrong ? "#e8472f" : "#2f9e44";
   g.fillText(wrong ? `パワーアップ！ たいりょく ${from} → ${to}(+15%)` : `そのまま！ たいりょく ${from}`, x + w / 2, y + 212, w - 20);
   g.restore();
+}
+
+// 強化形態の絵の倍率。高さ(boss=大きめ)と、はば(画面の右はしに はみださない)の せまいほうに あわせる。
+const STRONG_FIT = { egg: [320, 360], milk: [330, 360], mix: [300, 320], butter: [280, 320], syrup: [340, 350] };
+function strongArtScale(id) {
+  const img = images[`${id}_strong_normal`];
+  if (!img || !img.naturalHeight) return SCALE[id];
+  const [maxH, maxW] = STRONG_FIT[id] ?? [300, 320];
+  return Math.min(maxH / img.naturalHeight, maxW / img.naturalWidth);
 }
 
 const tmp = document.createElement("canvas");
@@ -1161,14 +1199,15 @@ function draw(now) {
     const strong = s.fails[enemy.id] === true;
     const ename = strong && STRONG_ART ? `${enemy.id}_strong_${weak}` : `${enemy.id}_${weak}`;
     const edy = r.enemyPose === "normal" ? bounce : 0;
+    const ex = strong && STRONG_ART ? 760 : 770;
     const overlay = strong && !STRONG_ART;
-    const escale = overlay ? strongScale(ename, SCALE[enemy.id]) : SCALE[enemy.id];
+    const escale = strong && STRONG_ART ? strongArtScale(enemy.id) : overlay ? strongScale(ename, SCALE[enemy.id]) : SCALE[enemy.id];
     const eimg = images[ename];
     const ew = eimg?.naturalWidth ? eimg.naturalWidth * escale : 0;
     const eh = eimg?.naturalHeight ? eimg.naturalHeight * escale : 0;
     if (overlay && ew && r.enemyPose !== "down") drawStrongBack(770, 398 + edy, ew, eh, now);
-    if (flinch > 0) drawFlash(ename, 770, 398 + edy, escale, flinch * 0.5, flinch * 8);
-    else drawSprite(ename, 770, 398, escale, { dy: edy });
+    if (flinch > 0) drawFlash(ename, ex, 398 + edy, escale, flinch * 0.5, flinch * 8);
+    else drawSprite(ename, ex, 398, escale, { dy: edy });
     if (overlay && ew && r.enemyPose !== "down") drawStrongFront(770, 398 + edy, ew, eh);
   }
 
@@ -1338,5 +1377,6 @@ if (location.search.includes("debug")) {
 }
 
 loadImages().then(() => {
+  useArt(images);
   if (!run) showCover();
 });

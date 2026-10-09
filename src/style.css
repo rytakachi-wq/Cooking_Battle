@@ -246,3 +246,6 @@ html, body {
   background: var(--accent);
   border-radius: 999px;
 }
+
+.logo-title { margin: 0; line-height: 0; }
+.logo { width: min(100%, 400px); height: auto; image-rendering: auto; }
