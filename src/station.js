@@ -347,7 +347,7 @@ function failures(g, stage, p, t, fails) {
       g.fill();
     }
   }
-  // ④ 焼く:こげて 火がでる。まっ黒な けむり
+  // ④ 焼く:こげて火がでる。まっ黒な けむり
   if (fails.butter && stage === 3 && p > 0.1) {
     const k = Math.min(1, p * 2);
     [[-70, 1], [-20, 1.3], [38, 1.1], [86, 0.9]].forEach(([dx, sc], i) => {
@@ -386,7 +386,7 @@ function failures(g, stage, p, t, fails) {
 export function drawFailStamp(g, t, age = 1, quiz = false) {
   const stamp = ready("ui_stamp_fail");
   if (stamp) {
-    // 見やすい ばしょに、大きく。出るとき ぽんと 大きく なって おちつく
+    // 見やすい ばしょに、大きく。出るとき ぽんと大きく なって おちつく
     const w = quiz ? 260 : 220;
     const h = (stamp.naturalHeight * w) / stamp.naturalWidth;
     const pop = 1 + 0.6 * Math.max(0, 1 - age / 0.18);

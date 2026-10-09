@@ -1,6 +1,6 @@
 // 「手順ならべ」のときに出す、場面の絵。問題の内容に合わせた、道具や材料を、調理台のまわりに おく。
-//   準備:洗面台・せっけん・タオル　卵:卵のパック・ボウル　牛乳:牛乳パック・計量カップ
-//   ミックス:ミックスの袋・ボウル・泡立て器　バター:コンロ・フライパン・バター　仕上げ:コンロ・お皿・シロップ
+//   準備:洗面台・せっけん・タオル卵:卵のパック・ボウル牛乳:牛乳パック・計量カップ
+//   ミックス:ミックスの袋・ボウル・泡立て器バター:コンロ・フライパン・バター仕上げ:コンロ・お皿・シロップ
 // 絵は、コードで描く。主人公は、いつもどおり、左に出る(main.js)。
 
 import { drawStation } from "./station.js";
@@ -60,7 +60,7 @@ function egg(g, x, y, s = 1) {
 
 // 洗面台:じゃ口、水、せっけん、タオル
 function sink(g, t) {
-  // かべの タオルかけ
+  // かべのタオルかけ
   box(g, 640, 150, 8, 70, 4, "#c9a26b");
   box(g, 600, 160, 90, 100, 8, "#eaf4ff");
   for (let i = 0; i < 4; i += 1) box(g, 604 + i * 22, 160, 11, 100, 0, "#9cc8f2", null);
@@ -242,7 +242,7 @@ function spatula(g, x, y) {
   box(g, x + 28, y - 112, 36, 44, 6, "#2f2f33");
 }
 
-// key:準備(prep)、または 敵のid。t:経過秒(あわや水の動き)
+// key:準備(prep)、または敵のid。t:経過秒(あわや水の動き)
 export function drawQuizScene(g, key, t) {
   g.save();
   g.lineJoin = "round";
@@ -365,10 +365,10 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
     g.restore();
     return;
   }
-  // 手順の数が ふえた分の 動き(4まいの 問題)
+  // 手順の数が ふえた分の動き(4まいの問題)
   if (key === "milk") {
     if (rank === 0) {
-      // 賞味期限:パックの 日づけを たしかめる(ルーペと チェック)
+      // 賞味期限:パックの日づけを たしかめる(ルーペとチェック)
       carton(g, 330, 300, 1.2);
       oval(g, 372, 232, 28, 28, "rgba(235,246,255,0.85)", INK, 4);
       g.strokeStyle = INK;
@@ -393,7 +393,7 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
     rank -= 1; // 以降は、はかる・注ぐ・しまう の動き
   } else if (key === "mix") {
     if (rank === 1) {
-      // 牛乳を 入れて 混ぜる:パックを かたむけて 注ぐ
+      // 牛乳を入れて混ぜる:パックを かたむけて注ぐ
       g.save();
       g.translate(575, 218);
       g.rotate(1.0);
@@ -405,7 +405,7 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
       g.restore();
       return;
     }
-    if (rank > 1) rank -= 1; // 粉を入れる・さっくり は、これまでの 動き
+    if (rank > 1) rank -= 1; // 粉を入れる・さっくり は、これまでの動き
   } else if (key === "butter" && rank === 3) {
     // 焼きあがり:ホットケーキを お皿に すべらせる
     const k = ease(p);
@@ -415,10 +415,10 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
     return;
   } else if (key === "egg") {
     if (rank === 2) {
-      // 小皿に 落として、からが ないか 見る
+      // 小皿に落として、からが ないか見る
       oval(g, 480, 318, 44, 10, "#f4f6f8", INK, 3);
     } else if (rank === 3) {
-      // ボウルに うつす:小皿を かたむけて、卵を ボウルへ
+      // ボウルに うつす:小皿を かたむけて、卵をボウルへ
       const k = ease(p);
       g.save();
       g.translate(lerp(540, 520, k), lerp(330, 280, k));
@@ -465,7 +465,7 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
     }
   } else if (key === "egg") {
     if (rank === 0) {
-      // コンコン:卵を 台に 当てる
+      // コンコン:卵を台に当てる
       const bounce = Math.abs(Math.sin(p * Math.PI * 3));
       const y = 284 - bounce * 46;
       egg(g, 520, y, 1.5);
@@ -512,13 +512,13 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
     }
   } else if (key === "milk") {
     if (rank === 0) {
-      // はかる:計量カップに 牛乳が たまる
+      // はかる:計量カップに牛乳が たまる
       carton(g, 330, 270, 0.9);
       stream(g, 340, 286, 336, 392 - 60 * p, 7);
       g.fillStyle = "#f4f8ff";
       g.fillRect(307, 392 - 62 * p, 50, 62 * p);
     } else if (rank === 1) {
-      // そそぐ:カップを かたむけて ボウルへ
+      // そそぐ:カップを かたむけてボウルへ
       const k = ease(Math.min(1, p * 1.5));
       g.save();
       g.translate(lerp(330, 420, k), lerp(392, 296, k));
@@ -537,7 +537,7 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
       g.restore();
       if (p > 0.4) stream(g, 455, 270, 482, 302, 7);
     } else {
-      // しまう:パックが 冷蔵庫へ
+      // しまう:パックが冷蔵庫へ
       const k = ease(p);
       box(g, 820, 240, 110, 160, 10, "#e7edf3");
       box(g, 828, 250, 94, 70, 6, "#f7fafc", INK, 2);
@@ -557,7 +557,7 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
         g.stroke();
       }
     } else if (rank === 1) {
-      // 粉を入れる:袋から 粉が ふる
+      // 粉を入れる:袋から粉が ふる
       g.save();
       g.translate(570, 215);
       g.rotate(0.9);
@@ -571,7 +571,7 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
         g.fill();
       }
     } else {
-      // さっくり:ヘラで 切るように
+      // さっくり:ヘラで切るように
       const a = Math.sin(p * Math.PI * 4) * 0.6;
       g.save();
       g.translate(480, 262);
@@ -613,7 +613,7 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
     }
   } else if (key === "syrup") {
     if (rank === 0) {
-      // 火を止める:火が 小さくなって 消える
+      // 火を止める:火が小さくなって消える
       miniFlame(g, 700, 372, Math.max(2, 34 * (1 - ease(p))), t, 1);
       for (let i = 0; i < 4; i += 1) {
         const ph = (p * 1.3 + i * 0.2) % 1;

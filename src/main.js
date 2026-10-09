@@ -93,14 +93,14 @@ function toggleMute() {
   showMute();
 }
 
-// 表紙・結果の 曲(画面が 動かない 場面なので、自動で 止めない)
+// 表紙・結果の曲(画面が動かない場面なので、自動で止めない)
 let menuTrack = { name: "cover", bpm: 108 };
 function playMenuTrack(name, bpm) {
   menuTrack = { name, bpm };
   watch(false);
   if (trackName() !== name) playTrack(name, bpm);
 }
-// 音が ならせるように なったとき(はじめて さわったあと)・画面が もどってきたとき、いまの場面の 曲を 流す
+// 音が ならせるように なったとき(はじめて さわったあと)・画面が もどってきたとき、いまの場面の曲を流す
 function syncMenuMusic() {
   if (run || tut) {
     if (tut && trackName() !== menuTrack.name) playMenuTrack(menuTrack.name, menuTrack.bpm);
@@ -138,7 +138,7 @@ function begin() {
     state: createState(),
     notes: [],
     restCues: [], // 矢印の ない拍の、専用の音
-    seg: null, // いまの敵の 曲({t0, beat, bar})
+    seg: null, // いまの敵の曲({t0, beat, bar})
     round: 0,
     nextBar: 0,
     lastPattern: -1,
@@ -150,7 +150,7 @@ function begin() {
     enemyPose: "normal",
     enemyUntil: 0,
     popups: [],
-    fx: [], // コンボ・パーフェクトの エフェクト
+    fx: [], // コンボ・パーフェクトのエフェクト
     pressed: {},
     attackAt: -9, // 主人公が、こうげきした時刻
     pendingHit: 0, // 敵に当たる時刻(こうげきが とどいたとき)
@@ -213,12 +213,12 @@ function shuffle(list) {
 
 // ならべる画面を出す。リズムは、この画面を終えてから、はじまる。
 // カードは、イラストの上に出る(quiz.js)。ドラッグして、上の「じゅんばん」の わくに ならべる。
-const ACTION_TIME = 0.5; // 1つの手順を やって見せる 秒数(みじかく)
+const ACTION_TIME = 0.5; // 1つの手順を やって見せる秒数(みじかく)
 
-// 1つの手順の 問題を、じゅんに ならべる。1つめが「ほんとうの やりかた」(main)
+// 1つの手順の問題を、じゅんに ならべる。1つめが「ほんとうの やりかた」(main)
 function quizzesFor(step, candidates, failKey) {
-  // 書いてある問題は ぜんぶ 出す(数は 固定)。出す じゅんばんは、データの show(小さいほうが 先)
-  // 1つめ(ほんとうの やりかた)は、じゅんばんが うしろでも、動きと 矢印の名前の もとに なる
+  // 書いてある問題は ぜんぶ出す(数は固定)。出す じゅんばんは、データの show(小さいほうが先)
+  // 1つめ(ほんとうの やりかた)は、じゅんばんが うしろでも、動きと矢印の名前の もとに なる
   const quizzes = [...candidates].sort((x, y) => (x.show ?? candidates.indexOf(x) + 1) - (y.show ?? candidates.indexOf(y) + 1));
   return quizzes.map((quiz, index) => ({
     def: { step: quizzes.length > 1 ? `${step}  (${index + 1}/${quizzes.length})` : step, quiz, main: quiz === candidates[0], variant: quiz === candidates[0] ? 0 : candidates.indexOf(quiz) },
@@ -247,7 +247,7 @@ function openQuiz(def, failKey, now = songTime(), left = 1) {
   run.banner = { text: "", from: 0, until: 0 };
   $("quiz-step").textContent = def.step;
   $("quiz-q").textContent = def.quiz.question;
-  $("quiz-left").textContent = left === 1 ? "この問題が おわると 戦いだよ！" : `のこり ${left}問で 戦いだよ！`;
+  $("quiz-left").textContent = left === 1 ? "この問題が おわると戦いだよ！" : `のこり ${left}問で戦いだよ！`;
   $("quiz-feedback").hidden = true;
   $("quiz").hidden = false;
 }
@@ -329,7 +329,7 @@ function updateQuiz(now) {
   }
 }
 
-// やって見せている途中でも、キーや クリックで、すぐ 答えあわせへ
+// やって見せている途中でも、キーやクリックで、すぐ答えあわせへ
 function skipDemo(now = songTime()) {
   const q = run?.quiz;
   if (q && q.stage === "demo") judgeQuiz(now);
@@ -354,7 +354,7 @@ function judgeQuiz(now) {
   }
   $("quiz-verdict").textContent = result.correct ? "◎ せいかい！" : "× じゅんばんが ちがったよ";
   $("quiz-verdict").className = result.correct ? "verdict ok" : "verdict ng";
-  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　体力が へって、つぎの敵が 強くなったよ。`;
+  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　体力が へって、つぎの敵が強くなったよ。`;
   $("quiz-reason").textContent = result.reason;
   $("quiz-feedback").hidden = false;
   playSe(result.correct ? "perfect" : "miss");
@@ -376,7 +376,7 @@ function endQuiz(now = songTime()) {
   }
   run.phase = "fight";
   run.lastPattern = -1;
-  // その敵の テンポの 曲を はじめる。矢印の 拍は、この曲の 小節に そろえる(1小節めは じゅんびの 小節)
+  // その敵のテンポの曲を はじめる。矢印の拍は、この曲の小節に そろえる(1小節めは じゅんびの小節)
   const foe = enemyOf(run.state);
   const bpm = foe.bpm ?? 120;
   run.seg = { t0: now + 0.35, bpm, beat: 60 / bpm, bar: 240 / bpm };
@@ -449,13 +449,13 @@ function onMiss(note, now) {
   else defeatIfDone(now, note.bar, false);
 }
 
-// 敵の体力が0でも、その小節の矢印を ぜんぶ おし終える(または 見のがす)まで、敵は たおれない。
+// 敵の体力が0でも、その小節の矢印を ぜんぶ おし終える(または見のがす)まで、敵は たおれない。
 // (さいごの矢印を おさなくても すすめてしまう、ということが ないように)
 function defeatIfDone(now, bar, hit) {
   if (!run || run.phase !== "fight" || run.state.enemyHp > 0) return;
   if (run.notes.some((n) => n.bar === bar && n.status === "pending")) return;
   if (!hit) {
-    // さいごの矢印を はずしたら、とどめを さしきれない。敵は、少しだけ 体力が のこる
+    // さいごの矢印を はずしたら、とどめを さしきれない。敵は、少しだけ体力が のこる
     run.state.enemyHp = HIT_DAMAGE.good;
     popup("とどめを さそう！", "#e8472f", now, 770, 150);
     return;
@@ -471,8 +471,8 @@ function defeatIfDone(now, bar, hit) {
   }
 }
 
-// --- コンボ・パーフェクトの エフェクト ---
-const COMBO_STEP = 5; // 5コンボごとに、大きな 演出
+// --- コンボ・パーフェクトのエフェクト ---
+const COMBO_STEP = 5; // 5コンボごとに、大きな演出
 const FX_STARS = ["#ffd23f", "#ff8a3d", "#fff6a8", "#ffffff"];
 
 function spawnHitFx(x, y, grade, now) {
@@ -528,7 +528,7 @@ function drawFx(r, now) {
       g.strokeStyle = INK;
       g.stroke();
     } else if (f.kind === "glow") {
-      // 画面の ふちが、ふわっと 金色に(やさしく。ちかちかは しない)
+      // 画面の ふちが、ふわっと金色に(やさしく。ちかちかは しない)
       const grad = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.85);
       grad.addColorStop(0, "rgba(255,210,63,0)");
       grad.addColorStop(1, `rgba(255,190,40,${0.38 * (1 - k)})`);
@@ -580,7 +580,7 @@ function press(key, now) {
   if (!target) {
     // 敵が やって見せているあいだは、おせない
     const st = boardState(run, now);
-    if (st?.calling) popup("まだ！ ききましょう", "#5b7aa3", now, BOARD.cx, BOARD.cy - 58);
+    if (st?.calling) popup("まだ！ききましょう", "#5b7aa3", now, BOARD.cx, BOARD.cy - 58);
     return;
   }
   if (target.key !== key) {
@@ -614,7 +614,7 @@ function update(now) {
       const steps = r.state.steps[enemyOf(r.state).id]; // いつも、正しい手順の名前
       for (const note of bar.notes) if (steps) note.label = steps[note.slot];
       r.notes.push(...bar.notes);
-      // 矢印の ない拍(休み)にも、それ専用の音(敵が 見せるときと、まねして おすときの、どちらにも)
+      // 矢印の ない拍(休み)にも、それ専用の音(敵が見せるときと、まねして おすときの、どちらにも)
       const taken = new Set(bar.notes.map((n) => n.beat));
       for (let k = 0; k <= 6; k += 1) {
         const p = k * 0.5;
@@ -698,7 +698,7 @@ function showResult() {
   const { isRecord } = recordPlay({ score: s.score, won, rank: grade });
   cancelAnimationFrame(frame);
   run = null;
-  $("r-title").textContent = won ? "ホットケーキ かんせい！" : "ざんねん… もういちど！";
+  $("r-title").textContent = won ? "ホットケーキかんせい！" : "ざんねん…もういちど！";
   $("r-hero").src = `../assets/chars/hero_${won ? "win" : "lose"}.png`;
   $("r-rank").textContent = won ? `ランク ${grade}` : "";
   $("r-score").textContent = s.score;
@@ -822,7 +822,7 @@ function drawPlate(key, x, y, r, state = "pending", alpha = 1) {
 // 敵が1小節で やって見せ(音といっしょに お皿がひかる)、つぎの1小節で、プレイヤーが まねして おす。
 // 矢印は動かない。おすタイミングは、曲のリズムと、したの拍のランプで、つかむ。
 //   ききましょう(青いカード・かぎ・敵のふきだし ♪) …おせない
-//   まねして！  (あたたかいカード・赤いランプ)       …おせる
+//   まねして！(あたたかいカード・赤いランプ)       …おせる
 
 // いま、どの小節を見せているか。{ group, calling, responding, callStart, respStart }
 function boardState(r, now) {
@@ -912,7 +912,7 @@ function drawBoard(r, now) {
   } else {
     g.textAlign = "left";
     g.fillStyle = responding ? "#e8472f" : "rgba(74,44,23,0.55)";
-    g.fillText(responding ? (r.state.enemyHp <= 0 ? "とどめ！ さいごまで おそう！" : "まねして おそう！") : "ちゅうもん", cx - 150, cy - 22);
+    g.fillText(responding ? (r.state.enemyHp <= 0 ? "とどめ！さいごまで おそう！" : "まねして おそう！") : "ちゅうもん", cx - 150, cy - 22);
   }
   g.restore();
 
@@ -982,8 +982,8 @@ function drawBoard(r, now) {
     g.textBaseline = "alphabetic";
   });
 
-  // 拍の ものさし。大きい丸=拍(1・2・3・休)、小さい丸=その あいだの 半拍(0.5)。
-  // 矢印のお皿は、この ものさしの 上に ならぶ。小さい丸の上にある矢印は、半拍の矢印。
+  // 拍の ものさし。大きい丸=拍(1・2・3・休)、小さい丸=その あいだの半拍(0.5)。
+  // 矢印のお皿は、この ものさしの上に ならぶ。小さい丸の上にある矢印は、半拍の矢印。
   const ty = cy + 80;
   const phaseStart = calling ? callStart : respStart;
   const active = calling || responding ? Math.floor((now - phaseStart) / (beatLen / 2)) : -1;
@@ -1122,8 +1122,8 @@ function drawStrongFront(cx, bottom, w, h) {
 
 // 手順ならべの答えあわせのあと、「つぎの敵」がどうなるかを見せる。
 // まちがえると、敵が大きく・つよい姿に変わり、体力がふえる(+15%)。ぜんぶ合っていれば、そのまま。
-// 「つぎの敵」:手順ならべの あいだ、右上に ずっと 小さく 見えている(ほかの文字・カードと かさならない 場所)
-// まちがえると、大きく・強い姿に かわり、体力が ふえる(+15%)のが 見える
+// 「つぎの敵」:手順ならべの あいだ、右上に ずっと小さく見えている(ほかの文字・カードと かさならない場所)
+// まちがえると、大きく・強い姿に かわり、体力が ふえる(+15%)のが見える
 function drawNextEnemyMini(r, now) {
   const q = r.quiz;
   if (!q) return;
@@ -1186,6 +1186,15 @@ function drawNextEnemyMini(r, now) {
   g.fillStyle = wrong ? "#e8472f" : INK;
   g.fillText(wrong ? `${from}→${to}` : `体力 ${from}`, cx, y + 109, w - 10);
   g.restore();
+}
+
+// 強化形態の絵の倍率。高さ(boss=大きめ)と、はば(画面の右はしに はみださない)の せまいほうに あわせる。
+const STRONG_FIT = { egg: [320, 360], milk: [330, 360], mix: [300, 320], butter: [280, 320], syrup: [340, 350] };
+function strongArtScale(id) {
+  const img = images[`${id}_strong_normal`];
+  if (!img || !img.naturalHeight) return SCALE[id];
+  const [maxH, maxW] = STRONG_FIT[id] ?? [300, 320];
+  return Math.min(maxH / img.naturalHeight, maxW / img.naturalWidth);
 }
 
 const tmp = document.createElement("canvas");
@@ -1521,7 +1530,7 @@ function drawStageBg() {
   g.fillRect(0, 380, W, 12);
 }
 
-// 手のカーソル(ui_hand.png の ひだりがわの 手)
+// 手のカーソル(ui_hand.png の ひだりがわの手)
 function drawHand(x, y, pinch) {
   const img = images.ui_hand;
   if (!img || !img.naturalWidth) return;
@@ -1549,7 +1558,7 @@ function drawKeyCap(x, y, key, down) {
   g.textBaseline = "alphabetic";
 }
 
-// チュートリアルの 大見出し(いま、あそびかたを 見ているところだと わかるように)
+// チュートリアルの大見出し(いま、あそびかたを見ているところだと わかるように)
 function tutHeading(n, caption, color = "#e8472f") {
   g.save();
   g.fillStyle = "#4a2c17";
@@ -1578,12 +1587,12 @@ function drawTutorial(t) {
   else tutMistake(t % 5);
 }
 
-// ① カードを ドラッグして ならべる(手が 見本を見せる)
+// ① カードをドラッグして ならべる(手が見本を見せる)
 function tutArrange(t) {
   const def = { quiz: { steps: [
-    { text: "平らな台に 軽く 当てて、ひびを 入れる", label: "コンコン" },
-    { text: "ひびに 親指を 入れて、そっと 開く", label: "パカッ" },
-    { text: "ボウルの 中へ 落とす", label: "ポトン" },
+    { text: "平らな台に軽く当てて、ひびを入れる", label: "コンコン" },
+    { text: "ひびに親指を入れて、そっと開く", label: "パカッ" },
+    { text: "ボウルの中へ落とす", label: "ポトン" },
   ] } };
   if (!tut.q) {
     const ranked = def.quiz.steps.map((item, rank) => ({ ...item, rank }));
@@ -1646,7 +1655,7 @@ function tutArrange(t) {
   q.stage = allPlaced ? "verdict" : "arrange";
   if (allPlaced) q.slots.forEach((_, i) => (q.slots[i] = q.items.findIndex((it) => it.rank === i)));
   drawSprite(`hero_${heroPose}`, 150 + lunge * LUNGE, 395, SCALE.hero);
-  // 手が カードの上に くるよう、カード → 手の じゅんで 描く
+  // 手がカードの上に くるよう、カード → 手の じゅんで描く
   Q.draw(g, q, t);
   if (cursor && !allPlaced) drawHand(cursor.x, cursor.y, cursor.pinch);
   tutHeading(1, "ドラッグして ならべよう");
@@ -1718,7 +1727,7 @@ function tutMistake(t) {
   g.fillRect(110, 398, 280, 12);
   g.fillStyle = "#ff6b6b";
   g.fillRect(110, 398, 280 * lerp(0.87, 1, k), 12);
-  // 右:リズムの ミス → 料理が しっぱい
+  // 右:リズムのミス → 料理が しっぱい
   panel(500, "ミスが ふえると");
   pic("dish_pan_golden", 710, 330, 130, 200, 1 - k);
   pic("fail_burnt", 710, 330, 150, 220, k);
@@ -1739,7 +1748,7 @@ function tutMistake(t) {
 
 // --- 入力 ---
 window.addEventListener("keydown", (event) => {
-  if ($("dlg-sound").open) return; // おとの せってい中は、ゲームの キーを うけつけない
+  if ($("dlg-sound").open) return; // おとの せってい中は、ゲームのキーを うけつけない
   unlock();
   syncMenuMusic();
   if (event.code === "Escape" && tut) {
@@ -1762,7 +1771,7 @@ window.addEventListener("keydown", (event) => {
       if (!event.repeat) chooseAt(pick);
     } else if ((event.code === "Enter" || event.code === "Space" || event.code === "NumpadEnter") && !run.quiz.answered) {
       event.preventDefault();
-      if (!event.repeat) (run.quiz.stage === "demo" ? skipDemo() : confirmQuiz());
+      if (!event.repeat)(run.quiz.stage === "demo" ? skipDemo() : confirmQuiz());
     } else if (event.code === "Backspace" && !run.quiz.answered) {
       event.preventDefault();
       if (!event.repeat) undoChoice();
@@ -1787,7 +1796,7 @@ window.addEventListener("pointerdown", () => {
   syncMenuMusic();
 });
 
-// どの ボタンを おしても、おとが ならす
+// どのボタンを おしても、おとが ならす
 document.addEventListener(
   "click",
   (event) => {
@@ -1826,7 +1835,7 @@ for (const kind of SOUND_KINDS) {
     input.nextElementSibling.textContent = input.value;
     if (kind === "se") playSe("place");
   });
-  // マウスの ホイールでも 上下(1めもりずつ。Shift を おすと 10ずつ)
+  // マウスのホイールでも上下(1めもりずつ。Shift を おすと 10ずつ)
   input.addEventListener(
     "wheel",
     (event) => {
@@ -1930,6 +1939,6 @@ loadImages().then(() => {
   useArt(images);
   if (!run) {
     showCover();
-    if (!tutorialSeen()) startTutorial(); // はじめて ひらいたときは、あそびかたを 見せる
+    if (!tutorialSeen()) startTutorial(); // はじめて ひらいたときは、あそびかたを見せる
   }
 });
