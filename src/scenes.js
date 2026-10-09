@@ -286,3 +286,275 @@ export function drawQuizScene(g, key, t) {
   }
   g.restore();
 }
+
+// ---- 手順の動き(カードを おいたとき、実際に やってみせる) ----
+// key:場面(prep・egg・milk・mix・butter・syrup)、rank:その手順の正しい順(0から)、p:進み(0〜1)、t:時刻(秒)
+const ease = (p) => p * p * (3 - 2 * p);
+const lerp = (a, b, p) => a + (b - a) * p;
+
+function star(g, x, y, r, rot = 0) {
+  g.beginPath();
+  for (let i = 0; i < 8; i += 1) {
+    const a = rot + (i * Math.PI) / 4;
+    const rad = i % 2 === 0 ? r : r * 0.4;
+    g.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad);
+  }
+  g.closePath();
+  g.fillStyle = "#ffd23f";
+  g.fill();
+  g.lineWidth = 2;
+  g.strokeStyle = INK;
+  g.stroke();
+}
+
+function miniFlame(g, x, y, size, t, seed) {
+  const sway = Math.sin(t * 9 + seed) * size * 0.12;
+  g.beginPath();
+  g.moveTo(x - size * 0.45, y);
+  g.quadraticCurveTo(x - size * 0.55, y - size * 0.7, x + sway, y - size * 1.2);
+  g.quadraticCurveTo(x + size * 0.55, y - size * 0.6, x + size * 0.45, y);
+  g.closePath();
+  g.fillStyle = "#ff7a1a";
+  g.fill();
+  g.lineWidth = 2.5;
+  g.strokeStyle = INK;
+  g.stroke();
+  g.beginPath();
+  g.moveTo(x - size * 0.22, y);
+  g.quadraticCurveTo(x - size * 0.25, y - size * 0.4, x + sway * 0.5, y - size * 0.7);
+  g.quadraticCurveTo(x + size * 0.25, y - size * 0.35, x + size * 0.22, y);
+  g.closePath();
+  g.fillStyle = "#ffd23f";
+  g.fill();
+}
+
+function stream(g, x1, y1, x2, y2, width, color = "rgba(245,250,255,0.95)") {
+  g.save();
+  g.lineCap = "round";
+  g.strokeStyle = INK;
+  g.lineWidth = width + 4;
+  g.beginPath();
+  g.moveTo(x1, y1);
+  g.quadraticCurveTo((x1 + x2) / 2 + 6, Math.min(y1, y2) + 10, x2, y2);
+  g.stroke();
+  g.strokeStyle = color;
+  g.lineWidth = width;
+  g.stroke();
+  g.restore();
+}
+
+function disc(g, x, y, rx, ry, fill) {
+  oval(g, x, y, rx, ry, fill, "#8a5a1c", 3);
+}
+
+export function drawActionFx(g, key, rank, p, t) {
+  const e = Math.min(1, p * 6, (1 - p) * 6 + 0.001);
+  g.save();
+  g.lineJoin = "round";
+  g.globalAlpha = Math.max(0, Math.min(1, e));
+  if (key === "prep") {
+    if (rank === 0) {
+      // 身じたく:きらきら(かみを むすび、エプロンを つける)
+      for (let i = 0; i < 6; i += 1) {
+        const a = t * 3 + (i * Math.PI) / 3;
+        star(g, 150 + Math.cos(a) * 78, 215 + Math.sin(a) * 52, 9 + 3 * Math.sin(t * 8 + i), a);
+      }
+    } else if (rank === 1) {
+      // 手をあらう:水と あわ
+      stream(g, 470, 236, 440, 300, 8, "rgba(130,190,245,0.9)");
+      for (let i = 0; i < 9; i += 1) {
+        const ph = (p * 1.2 + i * 0.11) % 1;
+        const bx = 380 + (i % 5) * 22 + Math.sin(t * 6 + i) * 4;
+        const by = 300 - ph * 70 - (i % 3) * 8;
+        const br = 8 + (i % 3) * 3 + p * 5;
+        oval(g, bx, by, br, br, "rgba(255,255,255,0.92)", "rgba(120,170,230,0.9)", 2);
+      }
+    } else {
+      // 手をふく:タオルが とんできて ふく
+      const k = ease(Math.min(1, p * 1.6));
+      const x = lerp(645, 275, k) + Math.sin(t * 16) * (k > 0.95 ? 6 : 0);
+      const y = lerp(205, 330, k);
+      box(g, x - 30, y - 22, 60, 44, 6, "#eaf4ff");
+      for (let i = 0; i < 4; i += 1) box(g, x - 28 + i * 15, y - 22, 7, 44, 0, "#9cc8f2", null);
+      box(g, x - 30, y - 22, 60, 44, 6, null);
+    }
+  } else if (key === "egg") {
+    if (rank === 0) {
+      // コンコン:卵を 台に 当てる
+      const bounce = Math.abs(Math.sin(p * Math.PI * 3));
+      const y = 284 - bounce * 46;
+      egg(g, 520, y, 1.5);
+      if (p > 0.35) {
+        g.strokeStyle = INK;
+        g.lineWidth = 3;
+        g.beginPath();
+        g.moveTo(506, y - 8);
+        g.lineTo(516, y);
+        g.lineTo(510, y + 6);
+        g.lineTo(524, y + 12);
+        g.stroke();
+      }
+    } else if (rank === 1) {
+      // パカッ:ひらく
+      const k = ease(p);
+      for (const side of [-1, 1]) {
+        g.save();
+        g.translate(480 + side * (6 + 34 * k), 258 - 10 * k);
+        g.rotate(side * 0.8 * k);
+        g.beginPath();
+        g.ellipse(0, 0, 20, 17, 0, side < 0 ? Math.PI * 0.5 : -Math.PI * 0.5, side < 0 ? Math.PI * 1.5 : Math.PI * 0.5);
+        g.closePath();
+        g.fillStyle = "#fdf5e6";
+        g.fill();
+        g.lineWidth = 3;
+        g.strokeStyle = INK;
+        g.stroke();
+        g.restore();
+      }
+      oval(g, 480, 262 + 6 * k, 16 * k, 16 * k, "#ffc21a", INK, 3);
+    } else {
+      // ポトン:ボウルに おちる
+      const fall = Math.min(1, p / 0.6);
+      oval(g, 480, lerp(220, 292, fall * fall), 16, 16, "#ffc21a", INK, 3);
+      if (p > 0.6) {
+        const r = (p - 0.6) / 0.4;
+        g.strokeStyle = "rgba(255,255,255,0.9)";
+        g.lineWidth = 3;
+        g.beginPath();
+        g.ellipse(480, 300, 20 + 40 * r, 6 + 10 * r, 0, 0, Math.PI * 2);
+        g.stroke();
+      }
+    }
+  } else if (key === "milk") {
+    if (rank === 0) {
+      // はかる:計量カップに 牛乳が たまる
+      carton(g, 330, 270, 0.9);
+      stream(g, 340, 286, 336, 392 - 60 * p, 7);
+      g.fillStyle = "#f4f8ff";
+      g.fillRect(307, 392 - 62 * p, 50, 62 * p);
+    } else if (rank === 1) {
+      // そそぐ:カップを かたむけて ボウルへ
+      const k = ease(Math.min(1, p * 1.5));
+      g.save();
+      g.translate(lerp(330, 420, k), lerp(392, 296, k));
+      g.rotate(-1.0 * k);
+      g.beginPath();
+      g.moveTo(-32, -70);
+      g.lineTo(32, -70);
+      g.lineTo(26, 0);
+      g.lineTo(-26, 0);
+      g.closePath();
+      g.fillStyle = "rgba(220,238,255,0.9)";
+      g.fill();
+      g.lineWidth = 3;
+      g.strokeStyle = INK;
+      g.stroke();
+      g.restore();
+      if (p > 0.4) stream(g, 455, 270, 482, 302, 7);
+    } else {
+      // しまう:パックが 冷蔵庫へ
+      const k = ease(p);
+      box(g, 820, 240, 110, 160, 10, "#e7edf3");
+      box(g, 828, 250, 94, 70, 6, "#f7fafc", INK, 2);
+      box(g, 828, 330, 94, 60, 6, "#f7fafc", INK, 2);
+      carton(g, lerp(650, 800, k), 392 - 10 * k, 1.1 - 0.4 * k);
+    }
+  } else if (key === "mix") {
+    if (rank === 0) {
+      // まぜる:泡立て器で ぐるぐる
+      const a = t * 9;
+      whisk(g, 480 + Math.cos(a) * 26, 330 + Math.sin(a) * 6);
+      g.strokeStyle = "rgba(255,255,255,0.85)";
+      g.lineWidth = 3;
+      for (let i = 0; i < 2; i += 1) {
+        g.beginPath();
+        g.ellipse(480, 306, 44 - i * 14, 9 - i * 3, 0, a + i, a + i + 3.3);
+        g.stroke();
+      }
+    } else if (rank === 1) {
+      // 粉を入れる:袋から 粉が ふる
+      g.save();
+      g.translate(570, 215);
+      g.rotate(0.9);
+      mixBag(g, 0, 0);
+      g.restore();
+      g.fillStyle = "rgba(255,248,230,0.95)";
+      for (let i = 0; i < 14; i += 1) {
+        const ph = (p * 2 + i * 0.07) % 1;
+        g.beginPath();
+        g.arc(528 - ph * 40 + (i % 4) * 4, 250 + ph * 55, 4, 0, Math.PI * 2);
+        g.fill();
+      }
+    } else {
+      // さっくり:ヘラで 切るように
+      const a = Math.sin(p * Math.PI * 4) * 0.6;
+      g.save();
+      g.translate(480, 262);
+      g.rotate(a);
+      g.lineWidth = 7;
+      g.strokeStyle = INK;
+      g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(0, -50);
+      g.lineTo(0, 24);
+      g.stroke();
+      box(g, -14, 18, 28, 36, 6, "#e2574c");
+      g.restore();
+    }
+  } else if (key === "butter") {
+    if (rank === 0) {
+      // あたためる:火と ゆげ
+      [-60, -20, 22, 62].forEach((dx, i) => miniFlame(g, 480 + dx, 388, 30 + 6 * Math.sin(t * 7 + i), t, i));
+      g.strokeStyle = "rgba(255,150,80,0.7)";
+      g.lineWidth = 4;
+      for (let i = 0; i < 4; i += 1) {
+        const ph = (t * 0.8 + i * 0.25) % 1;
+        g.beginPath();
+        g.moveTo(430 + i * 30, 330 - ph * 40);
+        g.quadraticCurveTo(436 + i * 30, 320 - ph * 40, 430 + i * 30, 310 - ph * 40);
+        g.stroke();
+      }
+    } else if (rank === 1) {
+      // 生地を流す:バターが とけて、生地が ひろがる
+      oval(g, 462, 350, lerp(24, 36, p), lerp(8, 12, p), "#ffe27a", "#b8921a", 3);
+      stream(g, 480, 250, 490, 344, lerp(8, 12, p), "rgba(250,236,190,0.97)");
+      oval(g, 490, 350, 70 * p, 20 * p, "rgba(250,236,190,0.95)", "#8a5a1c", 3);
+    } else {
+      // 裏返す:ホットケーキが くるっと
+      const up = Math.sin(p * Math.PI);
+      const y = 350 - up * 100;
+      const sy = Math.cos(p * Math.PI * 2);
+      disc(g, 480, y, 68, Math.max(3, Math.abs(sy) * 20), sy >= 0 ? "#e0a24c" : "#f0c36e");
+    }
+  } else if (key === "syrup") {
+    if (rank === 0) {
+      // 火を止める:火が 小さくなって 消える
+      miniFlame(g, 700, 372, Math.max(2, 34 * (1 - ease(p))), t, 1);
+      for (let i = 0; i < 4; i += 1) {
+        const ph = (p * 1.3 + i * 0.2) % 1;
+        g.fillStyle = `rgba(200,200,205,${0.7 * (1 - ph)})`;
+        g.beginPath();
+        g.arc(690 + i * 10, 330 - ph * 80, 10 + ph * 12, 0, Math.PI * 2);
+        g.fill();
+      }
+    } else if (rank === 1) {
+      // お皿へ:ホットケーキを うつす
+      const k = ease(p);
+      disc(g, lerp(700, 480, k), lerp(340, 330, k) - Math.sin(k * Math.PI) * 70, 66, 18, "#e0a24c");
+    } else if (rank === 2) {
+      // バター:ぽとん
+      const k = Math.min(1, p / 0.7);
+      butter(g, 480, lerp(190, 302, k * k) + (p > 0.7 ? -Math.sin((p - 0.7) * 10) * 6 : 0));
+    } else {
+      // シロップ:とろーり
+      g.save();
+      g.translate(430, 230);
+      g.rotate(-0.9 * ease(Math.min(1, p * 2)));
+      syrupBottle(g, 0, 40);
+      g.restore();
+      if (p > 0.3) stream(g, 456, 252, 482, 298, 9, "#9a5314");
+      oval(g, 482, 300, 16 + 52 * p, 5 + 12 * p, "#8a4b12", INK, 3);
+    }
+  }
+  g.restore();
+}

@@ -19,6 +19,7 @@
       </p>
       <div class="menu">
         <button id="btn-start" class="btn btn-main" type="button">はじめる</button>
+        <button id="btn-tutorial" class="btn btn-sub" type="button">あそびかた</button>
         <button id="btn-mute" class="btn btn-sub" type="button">おと：あり</button>
       </div>
       <div class="offset" role="group" aria-label="タイミング調整">
@@ -35,17 +36,18 @@
     <!-- 遊ぶ画面 -->
     <section id="screen-play" class="screen" aria-label="プレイ" hidden>
       <canvas id="stage" width="960" height="540"></canvas>
+      <div id="tut-bar" class="menu" hidden>
+        <button id="tut-prev" class="btn btn-small" type="button">◀ もどる</button>
+        <span id="tut-dots" class="tut-dots" aria-hidden="true"></span>
+        <button id="tut-next" class="btn btn-main btn-small" type="button">つぎへ ▶</button>
+        <button id="tut-skip" class="btn btn-small" type="button">スキップ</button>
+      </div>
       <section id="quiz" class="quiz" aria-live="polite" hidden>
         <p class="quiz-head"><span id="quiz-step" class="quiz-step"></span><span id="quiz-left" class="quiz-left"></span></p>
         <p id="quiz-q" class="quiz-q"></p>
-        <ol id="quiz-choices" class="quiz-choices"></ol>
-        <p id="quiz-guide" class="quiz-guide">カードを、<b>はじめにする ことから じゅんばんに</b> えらんでね。えらんだカードは、左から ならぶよ(数字キーは 左から数える / もどす: Backspace か、えらんだカードを もういちど クリック / のこり1まいに なったら「けってい」)</p>
-        <button id="btn-quiz-undo" class="btn btn-small" type="button">1つ もどす</button>
-        <button id="btn-quiz-ok" class="btn btn-main btn-small" type="button" hidden>これで けってい！ (Enter)</button>
         <div id="quiz-feedback" hidden>
           <p id="quiz-verdict" class="verdict"></p>
           <p id="quiz-fail" class="quiz-fail"></p>
-          <p id="quiz-answer" class="quiz-answer"></p>
           <p id="quiz-reason" class="quiz-reason"></p>
           <button id="btn-quiz-next" class="btn btn-main btn-small" type="button">つぎへ (Enter)</button>
         </div>

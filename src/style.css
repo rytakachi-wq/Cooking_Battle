@@ -249,3 +249,9 @@ html, body {
 
 .logo-title { margin: 0; line-height: 0; }
 .logo { width: min(100%, 400px); height: auto; image-rendering: auto; }
+
+#stage { touch-action: none; }
+
+.tut-dots { letter-spacing: 0.3em; font-weight: bold; }
+
+[hidden] { display: none !important; }

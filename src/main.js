@@ -21,7 +21,8 @@ import {
 } from "./game.js";
 import { activeSources, alive, cueAtSongTime, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
-import { drawQuizScene } from "./scenes.js";
+import * as Q from "./quiz.js";
+import { drawActionFx, drawQuizScene } from "./scenes.js";
 import { ENEMY_FX, STATION, drawFailStamp, drawStation, useArt } from "./station.js";
 import { loadStats, recordPlay } from "./storage.js";
 
@@ -106,6 +107,11 @@ let run = null;
 let frame = 0;
 
 function begin() {
+  if (tut) {
+    cancelAnimationFrame(tutFrame);
+    tut = null;
+    $("tut-bar").hidden = true;
+  }
   unlock();
   startSong();
   run = {
@@ -176,139 +182,116 @@ function shuffle(list) {
 }
 
 // ならべる画面を出す。リズムは、この画面を終えてから、はじまる。
-// えらんだカードは、えらんだ順に、左から ならぶ(のこりのカードは、そのあと)。
+// カードは、イラストの上に出る(quiz.js)。ドラッグして、上の「じゅんばん」の わくに ならべる。
+const ACTION_TIME = 1.0; // 1つの手順を やって見せる 秒数
+
 function openQuiz(def, failKey, now = songTime()) {
   clearPending();
   run.notes = [];
   run.phase = "quiz";
+  run.action = null;
   // 正しい順での位置(rank)をつけて、まぜる。まぜたあとも、正しい順のままに ならないよう、くりかえす。
   const ranked = def.quiz.steps.map((item, rank) => ({ ...item, rank }));
   let items = shuffle(ranked);
   for (let tries = 0; tries < 8 && items.every((item, i) => item.rank === i); tries += 1) items = shuffle(ranked);
-  run.quiz = { def, items, failKey, order: [], answered: false, cards: [] };
-  run.banner = { text: def.step, from: now, until: now + 9999 };
+  run.quiz = Q.createQuiz(def, failKey, items);
+  run.banner = { text: "", from: 0, until: 0 };
   $("quiz-step").textContent = def.step;
+  $("quiz-q").textContent = def.quiz.question;
   // この問題のあとに、戦いが はじまる。準備の問題のときは、つぎに卵の問題が ある
   const left = failKey === "prep" ? 2 : 1;
   $("quiz-left").textContent = left === 1 ? "この問題が おわると 戦いだよ！" : `のこり ${left}問で 戦いだよ！`;
-  $("quiz-q").textContent = def.quiz.question;
-  const list = $("quiz-choices");
-  list.replaceChildren();
-  items.forEach((item, i) => {
-    const li = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "choice";
-    const num = document.createElement("span");
-    num.className = "num";
-    const text = document.createElement("span");
-    text.className = "txt";
-    text.textContent = item.text;
-    const tag = document.createElement("span");
-    tag.className = "order";
-    button.append(num, text, tag);
-    button.addEventListener("click", () => choose(i));
-    li.append(button);
-    list.append(li);
-    run.quiz.cards.push(li);
-  });
-  $("quiz-guide").hidden = false;
-  $("btn-quiz-undo").hidden = false;
   $("quiz-feedback").hidden = true;
   $("quiz").hidden = false;
-  layoutQuiz(false);
 }
 
-// 画面に出ている並び(えらんだ順 → のこり)。数字キーは、この並びの左から数える。
-function quizDisplayOrder(q) {
-  return [...q.order, ...q.items.map((_, i) => i).filter((i) => !q.order.includes(i))];
-}
-
-// カードを、えらんだ順に ならべかえる(うごきも つける)
-function layoutQuiz(animate = true) {
+// その手順を、主人公が やって見せる(カードを おいた とき・答えあわせの とき)
+function startAction(rank, now) {
   const q = run.quiz;
-  const list = $("quiz-choices");
-  const before = new Map(q.cards.map((li) => [li, li.getBoundingClientRect()]));
-  const display = quizDisplayOrder(q);
-  display.forEach((i) => list.append(q.cards[i]));
-  display.forEach((i, pos) => {
-    const li = q.cards[i];
-    const button = li.querySelector("button");
-    const picked = pos < q.order.length;
-    button.classList.toggle("picked", picked);
-    button.querySelector(".num").textContent = String(pos + 1);
-    button.querySelector(".order").textContent = picked && !q.answered ? "← おすと もどす" : "";
-    button.disabled = q.answered;
-    if (animate) {
-      const from = before.get(li);
-      const to = li.getBoundingClientRect();
-      const dx = from.left - to.left;
-      const dy = from.top - to.top;
-      if (dx || dy) li.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 280, easing: "ease-out" });
-    }
-  });
-  $("btn-quiz-undo").disabled = q.order.length === 0 || q.answered;
-  // のこり1まいに なったら、「けってい」ボタン(のこりは、きまっているので)
-  $("btn-quiz-ok").hidden = q.answered || q.order.length !== q.items.length - 1;
+  run.action = { key: q.failKey, rank, from: now };
+  run.attackAt = now; // 前に出て、手を うごかす
+  setHero("attack", now, 0.7);
 }
 
-// のこりの1まいは、じどうで さいごに おく。
-function confirmQuiz() {
-  const q = run?.quiz;
-  if (!q || q.answered || q.order.length !== q.items.length - 1) return;
-  const rest = quizDisplayOrder(q)[q.order.length];
-  choose(rest);
-}
-
-// カードを1まい えらぶ(えらんだ順が、答えの順)。えらんであるカードを おすと、そこから もどる。
-// ぜんぶ えらんだら、答えあわせ。
+// カードを、あいている わくに おく(キーボード・クリックでも)
 function choose(i) {
   const q = run?.quiz;
-  if (!q || q.answered || !q.items[i]) return;
-  const at = q.order.indexOf(i);
-  if (at >= 0) {
-    q.order.length = at;
-    layoutQuiz();
-    return;
-  }
-  q.order.push(i);
-  if (q.order.length < q.items.length) {
-    layoutQuiz();
-    return;
-  }
-  q.answered = true;
-  q.answeredAt = songTime();
-  const result = answerQuiz(run.state, q.def, q.items, q.order, q.failKey);
-  q.result = result;
-  layoutQuiz();
-  q.order.forEach((index, pos) => {
-    q.cards[index].querySelector("button").classList.add(q.items[index].rank === pos ? "ok" : "ng");
-  });
-  $("quiz-guide").hidden = true;
-  $("btn-quiz-undo").hidden = true;
-  $("quiz-verdict").textContent = result.correct ? "◎ せいかい！" : "× じゅんばんが ちがったよ";
-  $("quiz-verdict").className = result.correct ? "verdict ok" : "verdict ng";
-  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　つぎの敵が、強くなったよ。`;
-  $("quiz-answer").textContent = `正しい じゅんばん： ${result.answer.map((text, n) => `${n + 1}. ${text}`).join("　")}`;
-  $("quiz-reason").textContent = result.reason;
-  $("quiz-feedback").hidden = false;
-  playSe(result.correct ? "perfect" : "miss");
+  if (!q || q.stage !== "arrange" || !q.items[i]) return;
+  handleQuizEvent(Q.placeFirstFree(q, i));
 }
 
-// 数字キー:画面の左から数えた、カードを えらぶ
 function chooseAt(position) {
-  const q = run?.quiz;
-  if (!q) return;
-  const display = quizDisplayOrder(q);
-  if (display[position] !== undefined) choose(display[position]);
+  choose(position);
 }
 
 // 1つ もどす
 function undoChoice() {
   const q = run?.quiz;
-  if (!q || q.answered || !q.order.length) return;
-  q.order.pop();
-  layoutQuiz();
+  if (!q || q.stage !== "arrange") return;
+  Q.removeLast(q);
+}
+
+function handleQuizEvent(ev, now = songTime()) {
+  if (!ev) return;
+  const q = run.quiz;
+  if (ev.type === "placed") startAction(q.items[ev.item].rank, now); // おいた手順を、すぐ やって見せる
+  else if (ev.type === "confirm") startDemo(now);
+}
+
+// 「けってい」:のこり1まいは じどうで おき、ならべた じゅんで ぜんぶ やって見せる
+function confirmQuiz(now = songTime()) {
+  const q = run?.quiz;
+  if (!q || q.stage !== "arrange" || Q.filled(q) < q.n - 1) return;
+  Q.fillLast(q);
+  startDemo(now);
+}
+
+function startDemo(now) {
+  const q = run.quiz;
+  if (q.stage !== "arrange") return;
+  Q.fillLast(q);
+  q.stage = "demo";
+  q.demoIdx = 0;
+  q.demoAt = now + 0.35;
+  q.hover = -1;
+}
+
+// 毎フレーム:カードの うごき、やって見せる じゅんばん、答えあわせ
+function updateQuiz(now) {
+  const q = run.quiz;
+  Q.update(q, now);
+  if (q.stage === "demo" && now >= q.demoAt) {
+    if (q.demoIdx < q.n) {
+      startAction(q.items[q.slots[q.demoIdx]].rank, now);
+      q.demoIdx += 1;
+      q.demoAt = now + ACTION_TIME + 0.12;
+    } else {
+      judgeQuiz(now);
+    }
+  }
+  if (q.stage === "verdict" && q.wrong && !q.reveal && now >= q.revealAt) {
+    q.reveal = true; // 正しい じゅんばんに、カードが ならびかわる
+    playSe("good");
+  }
+}
+
+function judgeQuiz(now) {
+  const q = run.quiz;
+  const result = answerQuiz(run.state, q.def, q.items, Q.order(q), q.failKey);
+  q.result = result;
+  q.answered = true;
+  q.answeredAt = now;
+  q.verdictAt = now;
+  q.stage = "verdict";
+  q.wrong = !result.correct;
+  q.revealAt = now + 0.9;
+  run.action = null;
+  $("quiz-verdict").textContent = result.correct ? "◎ せいかい！" : "× じゅんばんが ちがったよ";
+  $("quiz-verdict").className = result.correct ? "verdict ok" : "verdict ng";
+  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　つぎの敵が、強くなったよ。`;
+  $("quiz-reason").textContent = result.reason;
+  $("quiz-feedback").hidden = false;
+  playSe(result.correct ? "perfect" : "miss");
 }
 
 // 答えを見たあと、リズムの戦いへ。
@@ -455,6 +438,7 @@ function press(key, now) {
 
 function update(now) {
   const r = run;
+  if (r.phase === "quiz" && r.quiz) updateQuiz(now);
   if (r.phase === "fight") {
     // 2小節で1組:はじめの小節で、敵が やって見せ、つぎの小節で、プレイヤーが まねして おす(おすのは、あとの小節)
     while (r.nextBar * BAR - now < LOOKAHEAD) {
@@ -960,9 +944,9 @@ function drawNextEnemyPreview(r, now) {
   const e = wrong ? Math.min(1, Math.max(0, now - (q.answeredAt ?? now)) / 0.7) : 0;
   const ease = 1 - (1 - e) * (1 - e);
   const x = 700;
-  const y = 96;
+  const y = 188;
   const w = 244;
-  const h = 224;
+  const h = 208;
 
   g.save();
   g.fillStyle = "#fff4d8";
@@ -982,7 +966,7 @@ function drawNextEnemyPreview(r, now) {
   const strongImg = images[`${enemy.id}_strong_normal`];
   if (wrong && STRONG_ART && strongImg && strongImg.naturalHeight && img && img.naturalHeight) {
     const cx = x + w / 2;
-    const bottom = y + 164;
+    const bottom = y + 150;
     const fit = (im, maxH, maxW) => Math.min(maxH / im.naturalHeight, maxW / im.naturalWidth);
     const s1 = fit(img, 118, 150) * (1 - 0.0 * ease);
     const s2 = fit(strongImg, 136, 210) * (0.82 + 0.18 * ease);
@@ -996,7 +980,7 @@ function drawNextEnemyPreview(r, now) {
     const k = 1 + 0.22 * ease;
     const sc = base * k;
     const cx = x + w / 2;
-    const bottom = y + 160;
+    const bottom = y + 146;
     const iw = img.naturalWidth * sc;
     const ih = img.naturalHeight * sc;
     if (wrong) {
@@ -1015,7 +999,7 @@ function drawNextEnemyPreview(r, now) {
   // 体力
   const from = enemy.hp;
   const to = r.state.enemyMax;
-  const by = y + 176;
+  const by = y + 160;
   g.fillStyle = "rgba(0,0,0,0.2)";
   g.fillRect(x + 14, by, w - 28, 14);
   const full = w - 28;
@@ -1031,7 +1015,7 @@ function drawNextEnemyPreview(r, now) {
   g.font = "bold 15px sans-serif";
   g.textAlign = "center";
   g.fillStyle = wrong ? "#e8472f" : "#2f9e44";
-  g.fillText(wrong ? `パワーアップ！ たいりょく ${from} → ${to}(+15%)` : `そのまま！ たいりょく ${from}`, x + w / 2, y + 212, w - 20);
+  g.fillText(wrong ? `パワーアップ！ たいりょく ${from} → ${to}(+15%)` : `そのまま！ たいりょく ${from}`, x + w / 2, y + 196, w - 20);
   g.restore();
 }
 
@@ -1176,7 +1160,6 @@ function draw(now) {
   const inQuiz = r.phase === "quiz" && r.quiz;
   if (inQuiz) {
     drawQuizScene(g, r.quiz.failKey, now);
-    drawNextEnemyPreview(r, now);
   } else drawStation(g, s.enemyIndex, r.shown, now, s.cookFails);
 
   // 主人公:こうげきで前に出る
@@ -1209,6 +1192,14 @@ function draw(now) {
     if (flinch > 0) drawFlash(ename, ex, 398 + edy, escale, flinch * 0.5, flinch * 8);
     else drawSprite(ename, ex, 398, escale, { dy: edy });
     if (overlay && ew && r.enemyPose !== "down") drawStrongFront(770, 398 + edy, ew, eh);
+  }
+
+  if (inQuiz) {
+    // おいた手順を、実際に やって見せる(主人公と、道具・材料の動き)
+    const act = r.action;
+    if (act && now >= act.from && now - act.from <= ACTION_TIME) drawActionFx(g, act.key, act.rank, (now - act.from) / ACTION_TIME, now);
+    drawNextEnemyPreview(r, now);
+    Q.draw(g, r.quiz, now);
   }
 
   for (const shot of r.shots) drawShot(shot, now, heroX);
@@ -1287,9 +1278,282 @@ function tick() {
   }
 }
 
+// --- チュートリアル(はじめて あそぶとき・「あそびかた」) ---
+// ことばは さいしょうに して、動きで つたえる。3まい:①ならべる ②まねして おす ③まちがえると
+const TUT_KEY = "cookingBattle.tutorialSeen";
+const TUT_SLIDES = 3;
+const ease = (k) => k * k * (3 - 2 * k);
+const lerp = (a, b, k) => a + (b - a) * k;
+let tut = null;
+let tutFrame = 0;
+
+function tutorialSeen() {
+  try {
+    return localStorage.getItem(TUT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markTutorialSeen() {
+  try {
+    localStorage.setItem(TUT_KEY, "1");
+  } catch {
+    // 保存できなくても、そのまま あそべる
+  }
+}
+
+function syncTutBar() {
+  $("tut-prev").disabled = tut.slide === 0;
+  $("tut-next").textContent = tut.slide === TUT_SLIDES - 1 ? "あそぶ！" : "つぎへ ▶";
+  $("tut-dots").textContent = Array.from({ length: TUT_SLIDES }, (_, i) => (i === tut.slide ? "●" : "○")).join(" ");
+}
+
+function startTutorial() {
+  cancelAnimationFrame(tutFrame);
+  tut = { slide: 0, from: performance.now() / 1000, q: null };
+  $("quiz").hidden = true;
+  $("tut-bar").hidden = false;
+  show("play");
+  syncTutBar();
+  tutFrame = requestAnimationFrame(tutTick);
+}
+
+function tutGo(delta) {
+  if (!tut) return;
+  const next = tut.slide + delta;
+  if (next < 0) return;
+  if (next >= TUT_SLIDES) {
+    endTutorial();
+    return;
+  }
+  tut.slide = next;
+  tut.from = performance.now() / 1000;
+  tut.q = null;
+  syncTutBar();
+}
+
+function endTutorial() {
+  cancelAnimationFrame(tutFrame);
+  tut = null;
+  $("tut-bar").hidden = true;
+  markTutorialSeen();
+  showCover();
+}
+
+function tutTick() {
+  if (!tut) return;
+  fitCanvas();
+  drawTutorial((performance.now() / 1000 - tut.from) % 1000);
+  tutFrame = requestAnimationFrame(tutTick);
+}
+
+function drawStageBg() {
+  const wall = g.createLinearGradient(0, 0, 0, 380);
+  wall.addColorStop(0, "#fff0cc");
+  wall.addColorStop(1, "#ffdfa0");
+  g.fillStyle = wall;
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = "#b9764a";
+  g.fillRect(0, 380, W, H - 380);
+  g.fillStyle = "#d39466";
+  g.fillRect(0, 380, W, 12);
+}
+
+// 手のカーソル(ui_hand.png の ひだりがわの 手)
+function drawHand(x, y, pinch) {
+  const img = images.ui_hand;
+  if (!img || !img.naturalWidth) return;
+  const sw = img.naturalWidth * 0.56;
+  const h = pinch ? 58 : 66;
+  const w = (sw * h) / img.naturalHeight;
+  g.drawImage(img, 0, 0, sw, img.naturalHeight, x - w * 0.3, y - h * 0.08, w, h);
+}
+
+function drawKeyCap(x, y, key, down) {
+  const glyph = { L: "←", U: "↑", D: "↓", R: "→" }[key];
+  g.save();
+  g.fillStyle = down ? "#ffd23f" : "#fff";
+  g.strokeStyle = INK;
+  g.lineWidth = 4;
+  roundRect(x - 30, y - 26 + (down ? 5 : 0), 60, 52, 12);
+  g.fill();
+  g.stroke();
+  g.fillStyle = INK;
+  g.font = "bold 30px sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(glyph, x, y + (down ? 6 : 1));
+  g.restore();
+  g.textBaseline = "alphabetic";
+}
+
+function drawTutorial(t) {
+  drawStageBg();
+  if (tut.slide === 0) tutArrange(t % 10.5);
+  else if (tut.slide === 1) tutCopy(t % 6);
+  else tutMistake(t % 5);
+}
+
+// ① カードを ドラッグして ならべる(手が 見本を見せる)
+function tutArrange(t) {
+  const def = DEFAULT_RECIPE.enemies[0];
+  if (!tut.q) {
+    const ranked = def.quiz.steps.map((item, rank) => ({ ...item, rank }));
+    tut.q = Q.createQuiz(def, "egg", [ranked[1], ranked[2], ranked[0]]); // わざと ばらばらの じゅん
+    for (const c of tut.q.cards) {
+      c.x = tut.q.geo.hand[c.i].x;
+      c.y = tut.q.geo.hand[c.i].y;
+    }
+  }
+  const q = tut.q;
+  drawQuizScene(g, "egg", t);
+  let heroPose = "normal";
+  let lunge = 0;
+  let cursor = { x: 640, y: 360, pinch: false };
+  q.slots.fill(-1);
+  q.hover = -1;
+  q.stage = "arrange";
+  q.verdictAt = 8.3;
+  for (let r = 0; r < 3; r += 1) {
+    const t0 = 0.8 + r * 2.4;
+    const ci = q.items.findIndex((it) => it.rank === r);
+    const card = q.cards.find((c) => c.i === ci);
+    const home = q.geo.hand[ci];
+    const slot = q.geo.slots[r];
+    const grab = { x: home.x + q.geo.w / 2, y: home.y + q.geo.h / 2 };
+    const drop = { x: slot.x + q.geo.w / 2, y: slot.y + q.geo.h / 2 };
+    const prev = r === 0 ? { x: 640, y: 360 } : { x: q.geo.slots[r - 1].x + q.geo.w / 2, y: q.geo.slots[r - 1].y + q.geo.h / 2 };
+    if (t < t0) {
+      card.x = home.x;
+      card.y = home.y;
+      card.drag = false;
+      card.rot = 0;
+    } else if (t < t0 + 0.5) {
+      const k = (t - t0) / 0.5;
+      cursor = { x: lerp(prev.x, grab.x, ease(k)), y: lerp(prev.y, grab.y, ease(k)), pinch: false };
+    } else if (t < t0 + 1.4) {
+      const k = ease((t - t0 - 0.5) / 0.9);
+      cursor = { x: lerp(grab.x, drop.x, k), y: lerp(grab.y, drop.y, k), pinch: true };
+      card.x = lerp(home.x, slot.x, k);
+      card.y = lerp(home.y, slot.y, k);
+      card.drag = true;
+      card.rot = 0.05;
+      q.hover = r;
+    } else {
+      q.slots[r] = ci;
+      card.x = slot.x;
+      card.y = slot.y;
+      card.drag = false;
+      card.rot = 0;
+      if (t < t0 + 1.9) cursor = { x: drop.x + 14, y: drop.y + 8, pinch: false };
+      else if (t < t0 + 2.4) cursor = null;
+      if (t - t0 - 1.4 < 1.0) {
+        heroPose = "attack";
+        lunge = Math.sin(Math.min(1, (t - t0 - 1.4) / 0.5) * Math.PI);
+        drawActionFx(g, "egg", r, (t - t0 - 1.4) / 1.0, t);
+      }
+    }
+  }
+  const allPlaced = t > 8.0;
+  q.stage = allPlaced ? "verdict" : "arrange";
+  if (allPlaced) q.slots.forEach((_, i) => (q.slots[i] = q.items.findIndex((it) => it.rank === i)));
+  drawSprite(`hero_${heroPose}`, 150 + lunge * LUNGE, 395, SCALE.hero);
+  // 手が カードの上に くるよう、カード → 手の じゅんで 描く
+  Q.draw(g, q, t);
+  if (cursor && !allPlaced) drawHand(cursor.x, cursor.y, cursor.pinch);
+  outlined("ドラッグして ならべよう", W / 2, 60, 34, "#e8472f");
+}
+
+// ② 敵が やって見せる → まねして おす
+function tutCopy(t) {
+  const labels = ["コンコン", "パカッ", "ポトン"];
+  const keys = ["L", "R", "L"];
+  const beats = [0, 1, 2];
+  const notes = beats.map((b, i) => ({
+    bar: 1,
+    slot: i,
+    beat: b,
+    key: keys[i],
+    label: labels[i],
+    time: BAR + b * BEAT,
+    callAt: b * BEAT,
+    status: t >= BAR + b * BEAT ? "hit" : "pending",
+    hitAt: BAR + b * BEAT,
+  }));
+  const fake = { notes, state: { enemyHp: 50 }, pressed: {} };
+  const calling = t < BAR;
+  const heroHit = notes.some((n) => t >= n.time && t < n.time + 0.25);
+  const enemyCue = notes.some((n) => t >= n.callAt && t < n.callAt + 0.25);
+  drawSprite("hero_" + (heroHit ? "attack" : "normal"), 150, 395, SCALE.hero);
+  drawSprite("egg_" + (enemyCue ? "attack" : "normal"), 770, 398, SCALE.egg);
+  drawBoard(fake, t);
+  // 矢印キー:おすところが ひかる
+  ["L", "U", "D", "R"].forEach((key, i) => {
+    const down = notes.some((n) => n.key === key && t >= n.time && t < n.time + 0.2);
+    drawKeyCap(380 + i * 70, 470, key, down);
+  });
+  if (calling) outlined("みて ♪", W / 2, 60, 38, "#3d79d6");
+  else if (t < 2 * BAR) outlined("まねして おす！", W / 2, 60, 38, "#e8472f");
+}
+
+// ③ まちがえると
+function tutMistake(t) {
+  const k = ease(Math.min(1, Math.max(0, (t - 1.2) / 1.0)));
+  const panel = (x, title) => {
+    g.save();
+    g.fillStyle = "#fff4d8";
+    g.strokeStyle = INK;
+    g.lineWidth = 4;
+    roundRect(x, 90, 420, 330, 24);
+    g.fill();
+    g.stroke();
+    g.restore();
+    outlined(title, x + 210, 140, 26, INK);
+  };
+  const pic = (name, cx, bottom, maxH, maxW, alpha) => {
+    const img = images[name];
+    if (!img || !img.naturalWidth) return;
+    const s = Math.min(maxH / img.naturalHeight, maxW / img.naturalWidth);
+    g.save();
+    g.globalAlpha = alpha;
+    g.drawImage(img, cx - (img.naturalWidth * s) / 2, bottom - img.naturalHeight * s, img.naturalWidth * s, img.naturalHeight * s);
+    g.restore();
+  };
+  // 左:手順の ならべまちがい → 敵が つよく
+  panel(40, "ならべまちがい");
+  pic("egg_normal", 250, 330, 140, 190, 1 - k);
+  pic("egg_strong_normal", 250, 330, 160, 250, k);
+  outlined("つよくなる！", 250, 380, 28, "#e8472f");
+  g.fillStyle = "rgba(0,0,0,0.2)";
+  g.fillRect(110, 398, 280, 12);
+  g.fillStyle = "#ff6b6b";
+  g.fillRect(110, 398, 280 * lerp(0.87, 1, k), 12);
+  // 右:リズムの ミス → 料理が しっぱい
+  panel(500, "ミスが ふえると");
+  pic("dish_pan_golden", 710, 330, 130, 200, 1 - k);
+  pic("fail_burnt", 710, 330, 150, 220, k);
+  if (k > 0.6) {
+    const stamp = images.ui_stamp_fail;
+    if (stamp && stamp.naturalWidth) {
+      g.save();
+      g.globalAlpha = (k - 0.6) / 0.4;
+      g.translate(780, 190);
+      g.rotate(-0.12);
+      g.drawImage(stamp, -55, -48, 110, 96);
+      g.restore();
+    }
+  }
+  outlined("しっぱい…", 710, 380, 28, "#555");
+}
+
 // --- 入力 ---
 window.addEventListener("keydown", (event) => {
   unlock();
+  if (event.code === "Escape" && tut) {
+    endTutorial();
+    return;
+  }
   if (event.code === "Escape" && run) {
     quitToCover();
     return;
@@ -1360,10 +1624,47 @@ $("btn-mute-play").addEventListener("click", (event) => {
   toggleMute();
   event.currentTarget.blur(); // フォーカスが残ると、Enterなどで また押されてしまう
 });
-$("btn-quit").addEventListener("click", quitToCover);
+$("btn-quit").addEventListener("click", () => (tut ? endTutorial() : quitToCover()));
+$("btn-tutorial").addEventListener("click", startTutorial);
+$("tut-next").addEventListener("click", () => tutGo(1));
+$("tut-prev").addEventListener("click", () => tutGo(-1));
+$("tut-skip").addEventListener("click", endTutorial);
 $("btn-quiz-next").addEventListener("click", () => endQuiz());
-$("btn-quiz-undo").addEventListener("click", undoChoice);
-$("btn-quiz-ok").addEventListener("click", confirmQuiz);
+function canvasPoint(event) {
+  const rect = canvas.getBoundingClientRect();
+  return [((event.clientX - rect.left) * W) / rect.width, ((event.clientY - rect.top) * H) / rect.height];
+}
+canvas.addEventListener("pointerdown", (event) => {
+  if (!run || run.phase !== "quiz" || !run.quiz) return;
+  unlock();
+  const [x, y] = canvasPoint(event);
+  const ev = Q.pointerDown(run.quiz, x, y);
+  if (ev) {
+    try {
+      canvas.setPointerCapture(event.pointerId);
+    } catch {
+      // 取りつけられなくても、ドラッグは つづけられる
+    }
+    event.preventDefault();
+    handleQuizEvent(ev);
+  }
+});
+canvas.addEventListener("pointermove", (event) => {
+  if (!run || !run.quiz) return;
+  const [x, y] = canvasPoint(event);
+  Q.pointerMove(run.quiz, x, y);
+});
+canvas.addEventListener("pointerup", (event) => {
+  if (!run || !run.quiz) return;
+  const [x, y] = canvasPoint(event);
+  handleQuizEvent(Q.pointerUp(run.quiz, x, y));
+});
+canvas.addEventListener("pointercancel", () => {
+  if (run?.quiz?.drag) {
+    run.quiz.drag.drag = false;
+    run.quiz.drag = null;
+  }
+});
 
 // 画面がかくれたら、ゲームをやめて、BGMも止める(のこらないように)
 document.addEventListener("visibilitychange", () => {
@@ -1373,10 +1674,13 @@ window.addEventListener("pagehide", stopSong);
 
 // 動作確認用。アドレスの最後に ?debug をつけたときだけ、外から中をのぞける。
 if (location.search.includes("debug")) {
-  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, chooseAt, endQuiz, undoChoice, confirmQuiz };
+  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, chooseAt, endQuiz, undoChoice, confirmQuiz, drawTutorial, getTut: () => tut, startTutorial, endTutorial, fitCanvas };
 }
 
 loadImages().then(() => {
   useArt(images);
-  if (!run) showCover();
+  if (!run) {
+    showCover();
+    if (!tutorialSeen()) startTutorial(); // はじめて ひらいたときは、あそびかたを 見せる
+  }
 });
