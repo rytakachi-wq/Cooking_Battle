@@ -20,6 +20,7 @@ import {
 } from "./game.js";
 import { activeSources, alive, cueAtSongTime, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
+import { drawQuizScene } from "./scenes.js";
 import { ENEMY_FX, STATION, drawFailStamp, drawStation } from "./station.js";
 import { loadStats, recordPlay } from "./storage.js";
 
@@ -233,6 +234,16 @@ function layoutQuiz(animate = true) {
     }
   });
   $("btn-quiz-undo").disabled = q.order.length === 0 || q.answered;
+  // のこり1まいに なったら、「けってい」ボタン(のこりは、きまっているので)
+  $("btn-quiz-ok").hidden = q.answered || q.order.length !== q.items.length - 1;
+}
+
+// のこりの1まいは、じどうで さいごに おく。
+function confirmQuiz() {
+  const q = run?.quiz;
+  if (!q || q.answered || q.order.length !== q.items.length - 1) return;
+  const rest = quizDisplayOrder(q)[q.order.length];
+  choose(rest);
 }
 
 // カードを1まい えらぶ(えらんだ順が、答えの順)。えらんであるカードを おすと、そこから もどる。
@@ -630,16 +641,24 @@ function boardState(r, now) {
   };
 }
 
-function drawLock(x, y) {
+// 鍋のふた:「ふたをして ある」=いまは さわれない
+function drawLid(x, y) {
   g.save();
+  g.fillStyle = "#cfd5db";
   g.strokeStyle = "#5b7aa3";
   g.lineWidth = 3;
   g.beginPath();
-  g.arc(x, y - 4, 6, Math.PI, 0);
+  g.arc(x, y + 9, 13, Math.PI, 0);
+  g.closePath();
+  g.fill();
+  g.stroke();
+  g.beginPath();
+  g.moveTo(x - 17, y + 9);
+  g.lineTo(x + 17, y + 9);
   g.stroke();
   g.fillStyle = "#5b7aa3";
   g.beginPath();
-  g.roundRect(x - 9, y - 4, 18, 14, 3);
+  g.arc(x, y - 6, 3.5, 0, Math.PI * 2);
   g.fill();
   g.restore();
 }
@@ -675,10 +694,10 @@ function drawBoard(r, now) {
   g.save();
   g.font = "bold 14px sans-serif";
   if (calling) {
-    drawLock(cx - 146, cy - 24);
+    drawLid(cx - 146, cy - 28);
     g.textAlign = "left";
     g.fillStyle = "#3d5f8f";
-    g.fillText("ききましょう ♪  (まだ おせないよ)", cx - 130, cy - 20);
+    g.fillText("ききましょう ♪  (ふたを してあるよ)", cx - 116, cy - 20);
   } else {
     g.textAlign = "left";
     g.fillStyle = responding ? "#e8472f" : "rgba(74,44,23,0.55)";
@@ -730,7 +749,27 @@ function drawBoard(r, now) {
     }
   });
 
-  // 拍のランプ(1・2・3・4)。BGM(game.js の BPM)と、おなじ時計・おなじテンポで動く
+  // 順番の数字(1・2・3…)。敵が やって見せるとき、いま何番めかが わかる
+  group.forEach((note, i) => {
+    const x = cx + (i - (group.length - 1) / 2) * gap - pr + 2;
+    const y = cy + 16 - pr + 2;
+    const lit = calling && now - note.callAt >= 0 && now - note.callAt < 0.4;
+    g.beginPath();
+    g.arc(x, y, lit ? 11 : 9, 0, Math.PI * 2);
+    g.fillStyle = lit ? "#e8472f" : "#fff";
+    g.fill();
+    g.lineWidth = 2;
+    g.strokeStyle = INK;
+    g.stroke();
+    g.fillStyle = lit ? "#fff" : INK;
+    g.font = "bold 12px sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(String(i + 1), x, y + 1);
+    g.textBaseline = "alphabetic";
+  });
+
+  // 拍のランプ(1・2・3・休)。4拍めは、やすみ(一拍おく)。BGM(game.js の BPM)と、おなじ時計・おなじテンポで動く
   if (calling || responding) {
     const beat = Math.floor((now - (calling ? callStart : respStart)) / BEAT);
     for (let b = 0; b < 4; b += 1) {
@@ -739,13 +778,13 @@ function drawBoard(r, now) {
       const on = b === beat;
       g.beginPath();
       g.arc(x, y, 9, 0, Math.PI * 2);
-      g.fillStyle = on ? (calling ? "#3d79d6" : "#e8472f") : "rgba(74,44,23,0.15)";
+      g.fillStyle = on ? (b === 3 ? "#8a7f6f" : calling ? "#3d79d6" : "#e8472f") : "rgba(74,44,23,0.15)";
       g.fill();
       g.fillStyle = on ? "#fff" : "rgba(74,44,23,0.45)";
       g.font = "bold 11px sans-serif";
       g.textAlign = "center";
       g.textBaseline = "middle";
-      g.fillText(String(b + 1), x, y + 1);
+      g.fillText(b === 3 ? "休" : String(b + 1), x, y + 1);
       g.textBaseline = "alphabetic";
     }
   }
@@ -982,7 +1021,9 @@ function draw(now) {
   }
   const target = r.phase === "down" || r.enemyPose === "down" || r.downAt ? 1 : 1 - s.enemyHp / s.enemyMax;
   r.shown += (target - r.shown) * Math.min(1, dt * 7);
-  drawStation(g, s.enemyIndex, r.shown, now, s.fails);
+  const inQuiz = r.phase === "quiz" && r.quiz;
+  if (inQuiz) drawQuizScene(g, r.quiz.failKey, now);
+  else drawStation(g, s.enemyIndex, r.shown, now, s.fails);
 
   // 主人公:こうげきで前に出る
   const lunge = lungeAmount(now, r);
@@ -996,22 +1037,24 @@ function draw(now) {
   });
   g.restore();
 
-  // 敵:ひるむと白くひかり、うしろへ下がる
-  const since = now - r.hitAt;
-  const flinch = since >= 0 && since < 0.18 ? 1 - since / 0.18 : 0;
-  const weak = r.enemyPose === "normal" && s.enemyHp / s.enemyMax < 0.5 ? "damage" : r.enemyPose;
-  const strong = s.fails[enemy.id] === true;
-  const ename = strong && STRONG_ART ? `${enemy.id}_strong_${weak}` : `${enemy.id}_${weak}`;
-  const edy = r.enemyPose === "normal" ? bounce : 0;
-  const overlay = strong && !STRONG_ART;
-  const escale = overlay ? strongScale(ename, SCALE[enemy.id]) : SCALE[enemy.id];
-  const eimg = images[ename];
-  const ew = eimg?.naturalWidth ? eimg.naturalWidth * escale : 0;
-  const eh = eimg?.naturalHeight ? eimg.naturalHeight * escale : 0;
-  if (overlay && ew && r.enemyPose !== "down") drawStrongBack(770, 398 + edy, ew, eh, now);
-  if (flinch > 0) drawFlash(ename, 770, 398 + edy, escale, flinch * 0.5, flinch * 8);
-  else drawSprite(ename, 770, 398, escale, { dy: edy });
-  if (overlay && ew && r.enemyPose !== "down") drawStrongFront(770, 398 + edy, ew, eh);
+  if (!inQuiz) {
+    // 敵:ひるむと白くひかり、うしろへ下がる
+    const since = now - r.hitAt;
+    const flinch = since >= 0 && since < 0.18 ? 1 - since / 0.18 : 0;
+    const weak = r.enemyPose === "normal" && s.enemyHp / s.enemyMax < 0.5 ? "damage" : r.enemyPose;
+    const strong = s.fails[enemy.id] === true;
+    const ename = strong && STRONG_ART ? `${enemy.id}_strong_${weak}` : `${enemy.id}_${weak}`;
+    const edy = r.enemyPose === "normal" ? bounce : 0;
+    const overlay = strong && !STRONG_ART;
+    const escale = overlay ? strongScale(ename, SCALE[enemy.id]) : SCALE[enemy.id];
+    const eimg = images[ename];
+    const ew = eimg?.naturalWidth ? eimg.naturalWidth * escale : 0;
+    const eh = eimg?.naturalHeight ? eimg.naturalHeight * escale : 0;
+    if (overlay && ew && r.enemyPose !== "down") drawStrongBack(770, 398 + edy, ew, eh, now);
+    if (flinch > 0) drawFlash(ename, 770, 398 + edy, escale, flinch * 0.5, flinch * 8);
+    else drawSprite(ename, 770, 398, escale, { dy: edy });
+    if (overlay && ew && r.enemyPose !== "down") drawStrongFront(770, 398 + edy, ew, eh);
+  }
 
   for (const shot of r.shots) drawShot(shot, now, heroX);
   for (const b of r.bursts) drawBurst(b, now);
@@ -1036,7 +1079,7 @@ function draw(now) {
   g.fillStyle = "#4a2c17";
   g.fillText(`${s.enemyIndex + 1} / ${s.recipe.enemies.length}`, W - 24, 82);
 
-  drawBoard(r, now);
+  if (!inQuiz) drawBoard(r, now);
 
   // 豆知識(カウンターの上の、あいている場所に、1行だけ)
   if (r.tip && now >= r.tip.from && now < r.tip.until) {
@@ -1106,6 +1149,9 @@ window.addEventListener("keydown", (event) => {
     if (pick !== undefined) {
       event.preventDefault();
       if (!event.repeat) chooseAt(pick);
+    } else if ((event.code === "Enter" || event.code === "Space" || event.code === "NumpadEnter") && !run.quiz.answered) {
+      event.preventDefault();
+      if (!event.repeat) confirmQuiz();
     } else if (event.code === "Backspace" && !run.quiz.answered) {
       event.preventDefault();
       if (!event.repeat) undoChoice();
@@ -1162,6 +1208,7 @@ $("btn-mute-play").addEventListener("click", (event) => {
 $("btn-quit").addEventListener("click", quitToCover);
 $("btn-quiz-next").addEventListener("click", () => endQuiz());
 $("btn-quiz-undo").addEventListener("click", undoChoice);
+$("btn-quiz-ok").addEventListener("click", confirmQuiz);
 
 // 画面がかくれたら、ゲームをやめて、BGMも止める(のこらないように)
 document.addEventListener("visibilitychange", () => {
@@ -1171,7 +1218,7 @@ window.addEventListener("pagehide", stopSong);
 
 // 動作確認用。アドレスの最後に ?debug をつけたときだけ、外から中をのぞける。
 if (location.search.includes("debug")) {
-  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, chooseAt, endQuiz, undoChoice };
+  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, chooseAt, endQuiz, undoChoice, confirmQuiz };
 }
 
 loadImages().then(() => {
