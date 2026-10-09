@@ -13,6 +13,7 @@ export const MISS_DAMAGE = 8; // ミスしたときに受けるダメージ
 export const HIT_DAMAGE = { perfect: 18, good: 12 }; // 敵に与えるダメージ
 // リズムでのミスが、この数に なると、「料理が しっぱい」の見た目になる(手順ならべの まちがいとは、べつ)
 export const COOK_FAIL_MISSES = 3;
+export const QUIZ_MISS_DAMAGE = 8; // 手順ならべを まちがえたとき、主人公が うける ダメージ
 export const PENALTY = 1.15; // 手順えらびを まちがえたとき、次の敵の体力が ふえる倍率
 export const HIT_SCORE = { perfect: 100, good: 60 };
 
@@ -120,13 +121,15 @@ export function enemyOf(state) {
 // 手順ならべに答える。items は、画面に出した並び({text, label, rank})。rank は、正しい順での位置(0から)。
 // order は、えらんだ順に、items の番号を ならべたもの。
 // リズムのときは、まちがえても、正しい順の名前(label)が出る。まちがえたら、いまの敵が、少し強くなる。
-export function answerQuiz(state, { step, quiz }, items, order, failKey) {
+export function answerQuiz(state, def, items, order, failKey) {
+  const { step, quiz } = def;
   const correct = order.length === items.length && order.every((index, pos) => items[index].rank === pos);
-  state.steps[failKey] = quiz.steps.map((item) => item.label);
+  if (def.main) state.steps[failKey] = quiz.steps.map((item) => item.label); // リズムの名前は、1つめの問題(ほんとうの やりかた)から
   if (!correct) {
     state.fails[failKey] = true;
     state.enemyMax = Math.round(state.enemyMax * PENALTY);
     state.enemyHp = state.enemyMax;
+    state.playerHp = Math.max(0, state.playerHp - QUIZ_MISS_DAMAGE); // 主人公も しっぱい(体力が へる)
   }
   const answer = quiz.steps.map((item) => item.text);
   state.review.push({
@@ -137,5 +140,5 @@ export function answerQuiz(state, { step, quiz }, items, order, failKey) {
     fail: correct ? "" : quiz.fail,
     reason: quiz.reason,
   });
-  return { correct, fail: correct ? "" : quiz.fail, reason: quiz.reason, answer };
+  return { correct, fail: correct ? "" : quiz.fail, reason: quiz.reason, answer, dead: state.playerHp === 0 };
 }

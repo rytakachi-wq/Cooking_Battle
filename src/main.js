@@ -140,7 +140,12 @@ function begin() {
     quiz: null,
   };
   show("play");
-  openQuiz({ step: DEFAULT_RECIPE.prep.step, quiz: DEFAULT_RECIPE.prep.quiz }, "prep");
+  const first = enemyOf(run.state);
+  run.quizQueue = [
+    ...quizzesFor(DEFAULT_RECIPE.prep.step, DEFAULT_RECIPE.prep.quizzes, "prep"),
+    ...quizzesFor(first.step, first.quizzes, first.id),
+  ];
+  nextQuiz();
   cancelAnimationFrame(frame);
   frame = requestAnimationFrame(tick);
 }
@@ -185,7 +190,21 @@ function shuffle(list) {
 // カードは、イラストの上に出る(quiz.js)。ドラッグして、上の「じゅんばん」の わくに ならべる。
 const ACTION_TIME = 1.0; // 1つの手順を やって見せる 秒数
 
-function openQuiz(def, failKey, now = songTime()) {
+// 1つの手順の 問題を、じゅんに ならべる。1つめが「ほんとうの やりかた」(main)
+function quizzesFor(step, quizzes, failKey) {
+  return quizzes.map((quiz, index) => ({
+    def: { step: quizzes.length > 1 ? `${step}  (${index + 1}/${quizzes.length})` : step, quiz, main: index === 0, variant: index },
+    failKey,
+  }));
+}
+
+// つぎの問題を出す
+function nextQuiz(now = songTime()) {
+  const item = run.quizQueue.shift();
+  openQuiz(item.def, item.failKey, now, run.quizQueue.length + 1);
+}
+
+function openQuiz(def, failKey, now = songTime(), left = 1) {
   clearPending();
   run.notes = [];
   run.phase = "quiz";
@@ -195,11 +214,10 @@ function openQuiz(def, failKey, now = songTime()) {
   let items = shuffle(ranked);
   for (let tries = 0; tries < 8 && items.every((item, i) => item.rank === i); tries += 1) items = shuffle(ranked);
   run.quiz = Q.createQuiz(def, failKey, items);
+  run.quiz.variant = def.variant ?? 0;
   run.banner = { text: "", from: 0, until: 0 };
   $("quiz-step").textContent = def.step;
   $("quiz-q").textContent = def.quiz.question;
-  // この問題のあとに、戦いが はじまる。準備の問題のときは、つぎに卵の問題が ある
-  const left = failKey === "prep" ? 2 : 1;
   $("quiz-left").textContent = left === 1 ? "この問題が おわると 戦いだよ！" : `のこり ${left}問で 戦いだよ！`;
   $("quiz-feedback").hidden = true;
   $("quiz").hidden = false;
@@ -208,7 +226,7 @@ function openQuiz(def, failKey, now = songTime()) {
 // その手順を、主人公が やって見せる(カードを おいた とき・答えあわせの とき)
 function startAction(rank, now) {
   const q = run.quiz;
-  run.action = { key: q.failKey, rank, from: now };
+  run.action = { key: q.failKey, rank, from: now, variant: q.variant ?? 0 };
   run.attackAt = now; // 前に出て、手を うごかす
   setHero("attack", now, 0.7);
 }
@@ -286,9 +304,15 @@ function judgeQuiz(now) {
   q.wrong = !result.correct;
   q.revealAt = now + 0.9;
   run.action = null;
+  if (!result.correct) {
+    setHero("damage", now, 1.6); // 主人公も しっぱい
+    run.stamp = { from: now, until: now + 2.4 };
+    run.popups.push({ text: "しっぱい…", color: "#e8472f", x: 150, y: 150, from: now, big: true });
+    if (result.dead) q.dead = true;
+  }
   $("quiz-verdict").textContent = result.correct ? "◎ せいかい！" : "× じゅんばんが ちがったよ";
   $("quiz-verdict").className = result.correct ? "verdict ok" : "verdict ng";
-  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　つぎの敵が、強くなったよ。`;
+  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　体力が へって、つぎの敵が 強くなったよ。`;
   $("quiz-reason").textContent = result.reason;
   $("quiz-feedback").hidden = false;
   playSe(result.correct ? "perfect" : "miss");
@@ -300,10 +324,12 @@ function endQuiz(now = songTime()) {
   if (!q || !q.answered) return;
   run.quiz = null;
   $("quiz").hidden = true;
-  if (q.failKey === "prep") {
-    // 準備のあとは、はじめの敵(卵)の「ならべる」へ
-    const first = enemyOf(run.state);
-    openQuiz({ step: first.step, quiz: first.quiz }, first.id, now);
+  if (q.dead) {
+    finish("lose", now); // 手順を まちがえすぎて、体力が なくなった
+    return;
+  }
+  if (run.quizQueue.length) {
+    nextQuiz(now);
     return;
   }
   run.phase = "fight";
@@ -454,7 +480,7 @@ function update(now) {
       if (note.status === "pending" && !note.cued && note.callAt - now < 0.05) {
         note.cued = true;
         if (note.callAt - now > -0.3) {
-          cueAtSongTime(note.callAt, note.key);
+          cueAtSongTime(note.callAt, note.key, note.beat % 1 !== 0);
           setEnemy("attack", now, 0.22);
         }
       }
@@ -469,7 +495,8 @@ function update(now) {
     r.enemyUntil = 0;
     r.tip = null;
     const enemy = enemyOf(r.state);
-    openQuiz({ step: enemy.step, quiz: enemy.quiz }, enemy.id, now);
+    run.quizQueue = quizzesFor(enemy.step, enemy.quizzes, enemy.id);
+    nextQuiz(now);
   } else if (r.phase === "end" && now >= r.phaseUntil) {
     showResult();
     return false;
@@ -1197,7 +1224,7 @@ function draw(now) {
   if (inQuiz) {
     // おいた手順を、実際に やって見せる(主人公と、道具・材料の動き)
     const act = r.action;
-    if (act && now >= act.from && now - act.from <= ACTION_TIME) drawActionFx(g, act.key, act.rank, (now - act.from) / ACTION_TIME, now);
+    if (act && now >= act.from && now - act.from <= ACTION_TIME) drawActionFx(g, act.key, act.rank, (now - act.from) / ACTION_TIME, now, act.variant);
     drawNextEnemyPreview(r, now);
     Q.draw(g, r.quiz, now);
   }

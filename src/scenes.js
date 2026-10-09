@@ -347,11 +347,24 @@ function disc(g, x, y, rx, ry, fill) {
   oval(g, x, y, rx, ry, fill, "#8a5a1c", 3);
 }
 
-export function drawActionFx(g, key, rank, p, t) {
+export function drawActionFx(g, key, rank, p, t, variant = 0) {
   const e = Math.min(1, p * 6, (1 - p) * 6 + 0.001);
   g.save();
   g.lineJoin = "round";
   g.globalAlpha = Math.max(0, Math.min(1, e));
+  if (variant > 0) {
+    // 2つめ以降の問題(衛生・安全・保存):できた しるし。主人公の まわりが きらきら ひかる
+    for (let i = 0; i < 7; i += 1) {
+      const a = t * 3.2 + (i * Math.PI * 2) / 7;
+      star(g, 150 + Math.cos(a) * 82, 230 + Math.sin(a) * 58, 8 + 3 * Math.sin(t * 8 + i), a);
+    }
+    g.fillStyle = "#2f9e44";
+    g.font = "bold 40px sans-serif";
+    g.textAlign = "center";
+    g.fillText("♪", 150, 120 - 10 * p);
+    g.restore();
+    return;
+  }
   if (key === "prep") {
     if (rank === 0) {
       // 身じたく:きらきら(かみを むすび、エプロンを つける)

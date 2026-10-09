@@ -120,6 +120,9 @@ function scheduleBar(bar) {
     tone(midi(note - 12), t, BEAT - 0.05, { type: "triangle", volume: 0.34, bus: songBus });
     hiss(t, 0.05, { volume: 0.12, bus: songBus });
     hiss(t + BEAT / 2, 0.03, { volume: 0.035, bus: songBus });
+    // 表拍(拍の頭)は 高い音、裏拍(半拍)は 低い音。矢印の「半拍」の ものさしと そろえる
+    tone(1568, t, 0.07, { type: "triangle", volume: 0.2, bus: songBus });
+    tone(587, t + BEAT / 2, 0.07, { type: "triangle", volume: 0.16, bus: songBus });
   }
   // メロディは、1拍ごと(ゆっくり)。拍をじゃましない
   for (let h = 0; h < 4; h += 1) {
@@ -252,9 +255,11 @@ export function playSe(name) {
 // 敵が「やって見せる」ときの音。矢印の向きで、音の高さがちがう。
 // t は、曲の頭からの秒数(画面の時計と おなじ)。
 const CUE_PITCH = { L: 392, U: 523, R: 659, D: 330 };
-export function cueAtSongTime(t, key) {
+export function cueAtSongTime(t, key, offbeat = false) {
   if (!ctx || !master) return;
   const when = ctx.currentTime + Math.max(0, t - songTime());
-  tone(CUE_PITCH[key] ?? 440, when, 0.2, { type: "triangle", volume: 0.35 });
-  tone((CUE_PITCH[key] ?? 440) * 2, when, 0.08, { type: "sine", volume: 0.15 });
+  // 表拍は 高く、裏拍(半拍)は 1オクターブ 低く
+  const f = (CUE_PITCH[key] ?? 440) * (offbeat ? 0.5 : 2);
+  tone(f, when, 0.2, { type: "triangle", volume: 0.38 });
+  tone(f * 2, when, 0.08, { type: "sine", volume: 0.14 });
 }
