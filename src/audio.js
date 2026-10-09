@@ -20,18 +20,28 @@ let songBus = null; // BGMだけをまとめる音量つまみ。曲をとめる
 let sources = []; // 予約したBGMの音。曲をとめるときに、ぜんぶ止める
 
 let offsetMs = 0;
+// 音の大きさ(0〜100)。BGM=曲、rhythm=リズムの音(拍の クリック・敵の音・休みの音)、se=こうかおん(名前は 仮)
+const vols = { bgm: 70, rhythm: 80, se: 80 };
+let bgmGain = null;
+let rhythmGain = null;
+let seGain = null;
+let tickBus = null; // 曲の 拍の クリックだけを まとめる(リズムの つまみに つなぐ)
 
 try {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}");
   muted = saved.muted === true;
   if (Number.isFinite(saved.offsetMs)) offsetMs = Math.max(-200, Math.min(200, saved.offsetMs));
+  for (const kind of Object.keys(vols)) {
+    const v = saved.vol?.[kind];
+    if (Number.isFinite(v)) vols[kind] = Math.max(0, Math.min(100, Math.round(v)));
+  }
 } catch {
   // 読めなければ、音あり・ずれ0にする。
 }
 
 function saveSettings() {
   try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ muted, offsetMs }));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ muted, offsetMs, vol: vols }));
   } catch {
     // 保存できなくても、そのページを開いている間は、かわったまま。
   }
@@ -53,11 +63,38 @@ export function unlock() {
     comp.release.value = 0.15;
     master.connect(comp);
     comp.connect(ctx.destination);
+    bgmGain = ctx.createGain();
+    rhythmGain = ctx.createGain();
+    seGain = ctx.createGain();
+    for (const node of [bgmGain, rhythmGain, seGain]) node.connect(master);
+    applyVolumes();
     noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const data = noise.getChannelData(0);
     for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
   }
   if (ctx.state === "suspended") ctx.resume();
+}
+
+// つまみ(0〜100)→ 音の 大きさ。小さい ほうも 変わりが わかるよう、2じょうに する
+const toGain = (v) => (v / 100) ** 2 * 1.4;
+
+function applyVolumes() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  bgmGain.gain.setValueAtTime(toGain(vols.bgm), t);
+  rhythmGain.gain.setValueAtTime(toGain(vols.rhythm), t);
+  seGain.gain.setValueAtTime(toGain(vols.se), t);
+}
+
+export function getVolume(kind) {
+  return vols[kind];
+}
+
+export function setVolume(kind, value) {
+  if (!(kind in vols)) return;
+  vols[kind] = Math.max(0, Math.min(100, Math.round(value)));
+  applyVolumes();
+  saveSettings();
 }
 
 export function isMuted() {
@@ -74,7 +111,7 @@ export function setMuted(value) {
   saveSettings();
 }
 
-function tone(freq, when, length, { type = "square", volume = 0.15, to = null, bus = null } = {}) {
+function tone(freq, when, length, { type = "square", volume = 0.15, to = null, bus = null, out = null } = {}) {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = type;
@@ -82,13 +119,13 @@ function tone(freq, when, length, { type = "square", volume = 0.15, to = null, b
   if (to) osc.frequency.exponentialRampToValueAtTime(to, when + length);
   gain.gain.setValueAtTime(volume, when);
   gain.gain.exponentialRampToValueAtTime(0.0001, when + length);
-  osc.connect(gain).connect(bus ?? master);
+  osc.connect(gain).connect(bus ?? out ?? seGain ?? master);
   if (bus) sources.push(osc);
   osc.start(when);
   osc.stop(when + length + 0.02);
 }
 
-function hiss(when, length, { volume = 0.1, freq = 7000, bus = null } = {}) {
+function hiss(when, length, { volume = 0.1, freq = 7000, bus = null, out = null } = {}) {
   const src = ctx.createBufferSource();
   const filter = ctx.createBiquadFilter();
   const gain = ctx.createGain();
@@ -97,7 +134,7 @@ function hiss(when, length, { volume = 0.1, freq = 7000, bus = null } = {}) {
   filter.frequency.value = freq;
   gain.gain.setValueAtTime(volume, when);
   gain.gain.exponentialRampToValueAtTime(0.0001, when + length);
-  src.connect(filter).connect(gain).connect(bus ?? master);
+  src.connect(filter).connect(gain).connect(bus ?? out ?? seGain ?? master);
   if (bus) sources.push(src);
   src.start(when);
   src.stop(when + length + 0.02);
@@ -110,6 +147,8 @@ const inst = {
   midi,
   tone: (f, when, len, opts = {}) => tone(f, when, len, { ...opts, bus: songBus }),
   hiss: (when, len, opts = {}) => hiss(when, len, { ...opts, bus: songBus }),
+  // 拍の クリック(リズムの つまみで 大きさを かえる)
+  rtone: (f, when, len, opts = {}) => tone(f, when, len, { ...opts, bus: tickBus }),
 };
 
 // ゲームの画面が動いているあいだ、毎フレーム呼ぶ。3秒よばれなかったら、BGMだけが鳴りつづけないよう、自分で止める。
@@ -163,7 +202,9 @@ export function playTrack(name, bpm, at, flavor = "") {
   ensureClock();
   fadeOut();
   songBus = ctx.createGain();
-  songBus.connect(master);
+  songBus.connect(bgmGain);
+  tickBus = ctx.createGain();
+  tickBus.connect(rhythmGain);
   seg = { name, bpm, beat: 60 / bpm, bar: 240 / bpm, t0: at ?? songTime() + 0.25, flavor, scheduled: 0 };
   playing = true;
   if (!timer) timer = setInterval(pump, 250);
@@ -183,11 +224,13 @@ export function currentTrack() {
 function fadeOut() {
   if (!songBus) return;
   const bus = songBus;
+  const tbus = tickBus;
   const olds = sources;
   sources = [];
   const now = ctx.currentTime;
   bus.gain.cancelScheduledValues(now);
   bus.gain.setTargetAtTime(0, now, 0.03);
+  tbus?.gain.setTargetAtTime(0, now, 0.03);
   for (const source of olds) {
     try {
       source.stop(now + 0.15);
@@ -198,11 +241,13 @@ function fadeOut() {
   setTimeout(() => {
     try {
       bus.disconnect();
+      tbus?.disconnect();
     } catch {
       // すでに はずれている
     }
   }, 400);
   songBus = null;
+  tickBus = null;
 }
 
 export function stopSong() {
@@ -222,6 +267,10 @@ export function stopSong() {
   if (songBus) {
     songBus.disconnect();
     songBus = null;
+  }
+  if (tickBus) {
+    tickBus.disconnect();
+    tickBus = null;
   }
 }
 
@@ -289,7 +338,17 @@ export function playSe(name) {
   } else if (name === "combo") {
     [784, 988, 1175, 1568].forEach((f, i) => tone(f, t + i * 0.06, 0.18, { type: "triangle", volume: 0.4 }));
   } else if (name === "button") {
-    tone(660, t, 0.08, { type: "square", volume: 0.15 });
+    tone(660, t, 0.08, { type: "square", volume: 0.2 });
+    tone(990, t + 0.03, 0.06, { type: "triangle", volume: 0.12 });
+  } else if (name === "pick") {
+    tone(520, t, 0.05, { type: "triangle", volume: 0.35 }); // カードを つまむ
+  } else if (name === "place") {
+    tone(300, t, 0.07, { type: "sine", volume: 0.7, to: 180 }); // カードを おく(ぽん)
+    tone(880, t + 0.02, 0.05, { type: "triangle", volume: 0.22 });
+  } else if (name === "remove") {
+    tone(440, t, 0.07, { type: "triangle", volume: 0.3, to: 330 }); // てもとに もどす
+  } else if (name === "decide") {
+    [660, 880, 1175].forEach((f, i) => tone(f, t + i * 0.05, 0.12, { type: "triangle", volume: 0.4 })); // けってい
   }
 }
 
@@ -302,9 +361,9 @@ export function cueAtSongTime(t, key, offbeat = false) {
   // 表拍は 高く、裏拍(半拍)は 1オクターブ 低く
   const f = (CUE_PITCH[key] ?? 440) * (offbeat ? 0.5 : 2);
   // 裏拍(半拍)の音は、低くても きこえるように、大きく・音色を はっきり
-  tone(f, when, offbeat ? 0.24 : 0.2, { type: offbeat ? "square" : "triangle", volume: offbeat ? 0.55 : 0.75 });
-  tone(f * 2, when, 0.08, { type: "sine", volume: offbeat ? 0.55 : 0.3 });
-  if (offbeat) tone(f * 4, when, 0.04, { type: "triangle", volume: 0.4 }); // 頭の クリック
+  tone(f, when, offbeat ? 0.24 : 0.2, { type: offbeat ? "square" : "triangle", volume: offbeat ? 0.55 : 0.75, out: rhythmGain });
+  tone(f * 2, when, 0.08, { type: "sine", volume: offbeat ? 0.55 : 0.3, out: rhythmGain });
+  if (offbeat) tone(f * 4, when, 0.04, { type: "triangle", volume: 0.4, out: rhythmGain }); // 頭の クリック
 }
 
 // 矢印の ない拍(休み)の、専用の音。矢印の音(音程のある ピッ)とは ちがう、「コツ」「シャ」「ドン」の ような 音。
@@ -312,13 +371,16 @@ export function cueAtSongTime(t, key, offbeat = false) {
 export function restCueAtSongTime(t, kind) {
   if (!ctx || !master) return;
   const when = ctx.currentTime + Math.max(0, t - songTime());
+  // 休みの音は、矢印の音に まけないよう、大きく
   if (kind === "beat") {
-    tone(1046, when, 0.05, { type: "sine", volume: 0.6, to: 700 });
-    hiss(when, 0.03, { volume: 0.25, freq: 5000 });
+    tone(1046, when, 0.07, { type: "sine", volume: 1.4, to: 700, out: rhythmGain });
+    tone(2093, when, 0.03, { type: "square", volume: 0.3, out: rhythmGain });
+    hiss(when, 0.04, { volume: 0.6, freq: 5000, out: rhythmGain });
   } else if (kind === "half") {
-    hiss(when, 0.06, { volume: 0.34, freq: 3500 });
-    tone(520, when, 0.03, { type: "sine", volume: 0.2 });
+    hiss(when, 0.08, { volume: 0.9, freq: 3500, out: rhythmGain });
+    tone(520, when, 0.05, { type: "sine", volume: 0.7, out: rhythmGain });
   } else {
-    tone(180, when, 0.18, { type: "sine", volume: 0.8, to: 90 });
+    tone(180, when, 0.22, { type: "sine", volume: 1.6, to: 90, out: rhythmGain });
+    tone(360, when, 0.05, { type: "triangle", volume: 0.5, out: rhythmGain });
   }
 }

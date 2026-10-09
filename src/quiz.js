@@ -7,17 +7,19 @@ const W = 960;
 
 // ---- 場所 ----
 export function geometry(n) {
-  const w = n >= 4 ? 150 : 196;
-  const gap = n >= 4 ? 14 : 18;
-  const h = 92;
-  const slotX0 = 290; // 主人公(左)に かぶらないように、右へ よせる
-  const handX0 = 140;
+  // 上の まっすぐな たな(y 62〜150)に じゅんばんの わく。右はし(x 852〜)は「つぎの敵」の 小さな 絵の 場所。
+  // 下の たな(y 424〜)に 手もとの カード。まん中は、場面の イラスト(道具・材料)。ほかの 文字や 絵と かさならない。
+  const w = n >= 4 ? 134 : 176;
+  const gap = n >= 4 ? 12 : 18;
+  const h = 88;
+  const slotX0 = 270; // 主人公(左)に かぶらないように、右へ よせる
+  const handX0 = 130;
   return {
     w,
     h,
-    slots: Array.from({ length: n }, (_, s) => ({ x: slotX0 + s * (w + gap), y: 84, w, h })),
-    hand: Array.from({ length: n }, (_, i) => ({ x: handX0 + i * (w + gap), y: 418, w, h })),
-    ok: { x: 806, y: 428, w: 134, h: 72 }, // 「けってい」ボタン
+    slots: Array.from({ length: n }, (_, s) => ({ x: slotX0 + s * (w + gap), y: 62, w, h })),
+    hand: Array.from({ length: n }, (_, i) => ({ x: handX0 + i * (w + gap), y: 424, w, h })),
+    ok: { x: 770, y: 430, w: 150, h: 76 }, // 「けってい」ボタン
   };
 }
 

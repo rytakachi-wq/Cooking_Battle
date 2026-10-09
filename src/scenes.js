@@ -96,7 +96,7 @@ function sink(g, t) {
     g.ellipse(470, 238 + ph * 60, 4, 8, 0, 0, Math.PI * 2);
     g.fill();
   }
-  label(g, "洗面台", 430, 420);
+  label(g, "洗面台", 430, 408);
   // せっけん(ポンプ)
   box(g, 560, 262, 40, 52, 8, "#ffb3c7");
   box(g, 572, 248, 16, 16, 3, "#e4809f");
@@ -253,36 +253,36 @@ export function drawQuizScene(g, key, t) {
     // 卵のパック
     box(g, 610, 330, 130, 50, 10, "#d9c9a6");
     [0, 1, 2].forEach((i) => egg(g, 635 + i * 40, 328));
-    label(g, "卵", 675, 410);
-    label(g, "ボウル", 480, 420);
+    label(g, "卵", 675, 408);
+    label(g, "ボウル", 480, 408);
   } else if (key === "milk") {
     drawStation(g, 1, 0, t, {});
     carton(g, 650, 392, 1.1);
     cup(g, 330, 392);
-    label(g, "牛乳", 650, 420);
-    label(g, "計量カップ", 335, 420);
+    label(g, "牛乳", 650, 408);
+    label(g, "計量カップ", 335, 408);
   } else if (key === "mix") {
     drawStation(g, 2, 0, t, {});
     mixBag(g, 655, 392);
     whisk(g, 355, 392);
-    label(g, "ホットケーキミックス", 655, 420);
-    label(g, "泡立て器", 355, 420);
+    label(g, "ホットケーキミックス", 655, 408);
+    label(g, "泡立て器", 355, 408);
   } else if (key === "butter") {
     stove(g, 480, 392, 260);
     drawStation(g, 3, 0, t, {});
     butter(g, 690, 392);
     spatula(g, 330, 392);
-    label(g, "バター", 690, 420);
-    label(g, "フライパン", 480, 420);
+    label(g, "バター", 690, 408);
+    label(g, "フライパン", 480, 408);
   } else if (key === "syrup") {
     stove(g, 700, 392, 170);
     oval(g, 700, 352, 66, 17, "#2b2b30");
     box(g, 752, 343, 58, 12, 6, INK, null);
     drawStation(g, 4, 0, t, {});
     syrupBottle(g, 340, 392);
-    label(g, "シロップ", 340, 420);
-    label(g, "お皿", 480, 420);
-    label(g, "コンロ", 700, 420);
+    label(g, "シロップ", 340, 408);
+    label(g, "お皿", 480, 408);
+    label(g, "コンロ", 700, 408);
   }
   g.restore();
 }

@@ -19,6 +19,7 @@
       </div>
       <div class="menu menu-sub">
         <button id="btn-mute" class="btn btn-small" type="button">おと：あり</button>
+        <button id="btn-sound" class="btn btn-small" type="button">おと設定</button>
         <a class="btn btn-small" href="../support.html">サポート</a>
         <details class="settings">
           <summary class="btn btn-small">せってい</summary>
@@ -54,6 +55,7 @@
       </section>
       <div class="menu">
         <button id="btn-mute-play" class="btn btn-small" type="button">おと：あり (M)</button>
+        <button id="btn-sound-play" class="btn btn-small" type="button">おと設定</button>
         <button id="btn-quit" class="btn btn-small" type="button">やめる (Esc)</button>
       </div>
     </section>
@@ -87,6 +89,15 @@
     </section>
 
   </main>
+  <dialog id="dlg-sound" class="dialog" aria-labelledby="dlg-sound-title">
+    <p id="dlg-sound-title" class="dlg-title">おとの せってい</p>
+    <div class="vols">
+      <label class="vol"><span>BGM</span><input id="vol-bgm" type="range" min="0" max="100" step="1"><output></output></label>
+      <label class="vol"><span>リズム</span><input id="vol-rhythm" type="range" min="0" max="100" step="1"><output></output></label>
+      <label class="vol"><span>こうかおん</span><input id="vol-se" type="range" min="0" max="100" step="1"><output></output></label>
+    </div>
+    <button id="btn-sound-close" class="btn btn-main btn-small" type="button">もどる</button>
+  </dialog>
   <script type="module" src="main.js"></script>
 </body>
 </html>

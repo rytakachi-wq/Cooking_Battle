@@ -273,3 +273,19 @@ a.btn { display: inline-block; background: var(--sub); }
 .settings summary::-webkit-details-marker { display: none; }
 .settings[open] { flex-basis: 100%; text-align: center; }
 .settings .offset { margin-top: 10px; }
+
+.dialog {
+  width: min(92vw, 420px);
+  padding: 18px 22px;
+  color: var(--ink);
+  background: #fff4d8;
+  border: 4px solid var(--ink);
+  border-radius: 18px;
+  font: inherit;
+}
+.dialog::backdrop { background: rgba(74, 44, 23, 0.45); }
+.dlg-title { margin: 0 0 12px; font-size: 20px; font-weight: bold; color: var(--accent); }
+.vols { display: grid; gap: 14px; margin-bottom: 16px; }
+.vol { display: grid; grid-template-columns: 6em 1fr 2.4em; align-items: center; gap: 10px; font-weight: bold; }
+.vol input[type="range"] { width: 100%; accent-color: var(--accent); }
+.vol output { text-align: right; font-variant-numeric: tabular-nums; }

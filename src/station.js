@@ -383,14 +383,17 @@ function failures(g, stage, p, t, fails) {
 }
 
 // 失敗した手順の、大きな「しっぱい！」。調理台の下の、あいている場所に出す。
-export function drawFailStamp(g, t) {
+export function drawFailStamp(g, t, age = 1, quiz = false) {
   const stamp = ready("ui_stamp_fail");
   if (stamp) {
-    const w = 190;
+    // 見やすい ばしょに、大きく。出るとき ぽんと 大きく なって おちつく
+    const w = quiz ? 260 : 220;
     const h = (stamp.naturalHeight * w) / stamp.naturalWidth;
+    const pop = 1 + 0.6 * Math.max(0, 1 - age / 0.18);
     g.save();
-    g.translate(STATION.x, 472);
+    g.translate(STATION.x, quiz ? 300 : 372);
     g.rotate(-0.1);
+    g.scale(pop, pop);
     g.drawImage(stamp, -w / 2, -h / 2, w, h);
     g.restore();
     return;

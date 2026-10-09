@@ -31,10 +31,10 @@ const bell = (I, n, t, len, v = 0.1) => {
 
 // 拍の クリック:表拍=高い、裏拍(半拍)=低い。矢印の「拍のものさし」と、おなじ。
 function ticks(I, t, beat) {
-  I.tone(1568, t, 0.09, { type: "triangle", volume: 0.55 });
-  I.tone(1568, t, 0.04, { type: "square", volume: 0.16 });
-  I.tone(587, t + beat / 2, 0.11, { type: "square", volume: 0.26 });
-  I.tone(294, t + beat / 2, 0.12, { type: "triangle", volume: 0.7 });
+  I.rtone(1568, t, 0.09, { type: "triangle", volume: 0.55 });
+  I.rtone(1568, t, 0.04, { type: "square", volume: 0.16 });
+  I.rtone(587, t + beat / 2, 0.11, { type: "square", volume: 0.26 });
+  I.rtone(294, t + beat / 2, 0.12, { type: "triangle", volume: 0.7 });
 }
 
 // ---- 曲の 材料 ----

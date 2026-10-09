@@ -19,7 +19,7 @@ import {
   registerHit,
   registerMiss,
 } from "./game.js";
-import { activeSources, alive, cueAtSongTime, restCueAtSongTime, playTrack, trackName, watch, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
+import { activeSources, alive, getVolume, setVolume, cueAtSongTime, restCueAtSongTime, playTrack, trackName, watch, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import * as Q from "./quiz.js";
 import { drawActionFx, drawQuizScene } from "./scenes.js";
@@ -275,20 +275,27 @@ function chooseAt(position) {
 function undoChoice() {
   const q = run?.quiz;
   if (!q || q.stage !== "arrange") return;
-  Q.removeLast(q);
+  if (Q.removeLast(q)) playSe("remove");
 }
 
 function handleQuizEvent(ev, now = songTime()) {
   if (!ev) return;
   const q = run.quiz;
-  if (ev.type === "placed") startAction(q.items[ev.item].rank, now); // おいた手順を、すぐ やって見せる
-  else if (ev.type === "confirm") startDemo(now);
+  if (ev.type === "placed") {
+    playSe("place");
+    startAction(q.items[ev.item].rank, now); // おいた手順を、すぐ やって見せる
+  } else if (ev.type === "removed") playSe("remove");
+  else if (ev.type === "confirm") {
+    playSe("decide");
+    startDemo(now);
+  }
 }
 
 // 「けってい」:のこり1まいは じどうで おき、ならべた じゅんで ぜんぶ やって見せる
 function confirmQuiz(now = songTime()) {
   const q = run?.quiz;
   if (!q || q.stage !== "arrange" || Q.filled(q) < q.n - 1) return;
+  playSe("decide");
   Q.fillLast(q);
   startDemo(now);
 }
@@ -1115,96 +1122,70 @@ function drawStrongFront(cx, bottom, w, h) {
 
 // 手順ならべの答えあわせのあと、「つぎの敵」がどうなるかを見せる。
 // まちがえると、敵が大きく・つよい姿に変わり、体力がふえる(+15%)。ぜんぶ合っていれば、そのまま。
-function drawNextEnemyPreview(r, now) {
+// 「つぎの敵」:手順ならべの あいだ、右上に ずっと 小さく 見えている(ほかの文字・カードと かさならない 場所)
+// まちがえると、大きく・強い姿に かわり、体力が ふえる(+15%)のが 見える
+function drawNextEnemyMini(r, now) {
   const q = r.quiz;
-  if (!q || !q.answered || !q.result) return;
+  if (!q) return;
   const enemy = enemyOf(r.state);
-  const wrong = !q.result.correct;
+  const answered = q.answered && q.result;
+  const wrong = answered && !q.result.correct;
   const e = wrong ? Math.min(1, Math.max(0, now - (q.answeredAt ?? now)) / 0.7) : 0;
   const ease = 1 - (1 - e) * (1 - e);
-  const x = 700;
-  const y = 188;
-  const w = 244;
-  const h = 208;
+  const x = 852;
+  const y = 62;
+  const w = 96;
+  const h = 116;
 
   g.save();
-  g.fillStyle = "#fff4d8";
+  g.fillStyle = "rgba(255,244,216,0.94)";
   g.strokeStyle = wrong ? "#e8472f" : INK;
-  g.lineWidth = 4;
-  roundRect(x, y, w, h, 22);
+  g.lineWidth = 3;
+  roundRect(x, y, w, h, 14);
   g.fill();
   g.stroke();
   g.fillStyle = INK;
-  g.font = "bold 15px sans-serif";
-  g.textAlign = "left";
-  g.fillText(`つぎの敵：${enemy.name}`, x + 14, y + 26);
+  g.font = "bold 12px sans-serif";
+  g.textAlign = "center";
+  g.fillText("つぎの敵", x + w / 2, y + 15);
 
-  // 敵(まちがえたときは、大きく・強い姿に かわる)
-  const name = `${enemy.id}_normal`;
-  const img = images[name];
+  const img = images[`${enemy.id}_normal`];
   const strongImg = images[`${enemy.id}_strong_normal`];
-  if (wrong && STRONG_ART && strongImg && strongImg.naturalHeight && img && img.naturalHeight) {
-    const cx = x + w / 2;
-    const bottom = y + 150;
-    const fit = (im, maxH, maxW) => Math.min(maxH / im.naturalHeight, maxW / im.naturalWidth);
-    const s1 = fit(img, 118, 150) * (1 - 0.0 * ease);
-    const s2 = fit(strongImg, 136, 210) * (0.82 + 0.18 * ease);
-    g.globalAlpha = 1 - ease;
+  const cx = x + w / 2;
+  const bottom = y + 82;
+  const fit = (im, maxH, maxW) => Math.min(maxH / im.naturalHeight, maxW / im.naturalWidth);
+  if (img && img.naturalHeight) {
+    const s1 = fit(img, 56, 76);
+    g.globalAlpha = wrong && strongImg ? 1 - ease : 1;
     g.drawImage(img, cx - (img.naturalWidth * s1) / 2, bottom - img.naturalHeight * s1, img.naturalWidth * s1, img.naturalHeight * s1);
+  }
+  if (wrong && STRONG_ART && strongImg && strongImg.naturalHeight) {
+    const s2 = fit(strongImg, 60, 86) * (0.85 + 0.15 * ease);
     g.globalAlpha = ease;
     g.drawImage(strongImg, cx - (strongImg.naturalWidth * s2) / 2, bottom - strongImg.naturalHeight * s2, strongImg.naturalWidth * s2, strongImg.naturalHeight * s2);
-    g.globalAlpha = 1;
-  } else if (img && img.naturalHeight) {
-    const base = 118 / img.naturalHeight;
-    const k = 1 + 0.22 * ease;
-    const sc = base * k;
-    const cx = x + w / 2;
-    const bottom = y + 146;
-    const iw = img.naturalWidth * sc;
-    const ih = img.naturalHeight * sc;
-    if (wrong) {
-      g.globalAlpha = ease;
-      drawStrongBack(cx, bottom, iw, ih, now);
-      g.globalAlpha = 1;
-    }
-    g.drawImage(img, cx - iw / 2, bottom - ih, iw, ih);
-    if (wrong) {
-      g.globalAlpha = ease;
-      drawStrongFront(cx, bottom, iw, ih);
-      g.globalAlpha = 1;
-    }
   }
+  g.globalAlpha = 1;
 
-  // 体力
+  // 体力(まちがえると ふえる)
   const from = enemy.hp;
   const to = r.state.enemyMax;
-  const by = y + 160;
+  const by = y + 90;
   g.fillStyle = "rgba(0,0,0,0.2)";
-  g.fillRect(x + 14, by, w - 28, 14);
-  const full = w - 28;
+  g.fillRect(x + 8, by, w - 16, 7);
+  const full = w - 16;
   g.fillStyle = "#ff6b6b";
-  g.fillRect(x + 14, by, full * (from / to + (1 - from / to) * ease), 14);
+  g.fillRect(x + 8, by, full * (from / to + (1 - from / to) * ease), 7);
   if (wrong) {
     g.fillStyle = "#e8472f";
-    g.fillRect(x + 14 + full * (from / to), by, full * (1 - from / to) * ease, 14);
+    g.fillRect(x + 8 + full * (from / to), by, full * (1 - from / to) * ease, 7);
   }
   g.strokeStyle = INK;
-  g.lineWidth = 2;
-  g.strokeRect(x + 14, by, full, 14);
-  g.font = "bold 15px sans-serif";
-  g.textAlign = "center";
-  g.fillStyle = wrong ? "#e8472f" : "#2f9e44";
-  g.fillText(wrong ? `パワーアップ！ たいりょく ${from} → ${to}(+15%)` : `そのまま！ たいりょく ${from}`, x + w / 2, y + 196, w - 20);
+  g.lineWidth = 1.5;
+  g.strokeRect(x + 8, by, full, 7);
+  g.font = "bold 11px sans-serif";
+  g.fillStyle = wrong ? "#e8472f" : INK;
+  g.fillText(wrong ? `${from}→${to}` : `体力 ${from}`, cx, y + 109, w - 10);
   g.restore();
-}
-
-// 強化形態の絵の倍率。高さ(boss=大きめ)と、はば(画面の右はしに はみださない)の せまいほうに あわせる。
-const STRONG_FIT = { egg: [320, 360], milk: [330, 360], mix: [300, 320], butter: [280, 320], syrup: [340, 350] };
-function strongArtScale(id) {
-  const img = images[`${id}_strong_normal`];
-  if (!img || !img.naturalHeight) return SCALE[id];
-  const [maxH, maxW] = STRONG_FIT[id] ?? [300, 320];
-  return Math.min(maxH / img.naturalHeight, maxW / img.naturalWidth);
 }
 
 const tmp = document.createElement("canvas");
@@ -1377,7 +1358,7 @@ function draw(now) {
     // おいた手順を、実際に やって見せる(主人公と、道具・材料の動き)
     const act = r.action;
     if (act && now >= act.from && now - act.from <= ACTION_TIME) drawActionFx(g, act.key, act.rank, (now - act.from) / ACTION_TIME, now, act.variant);
-    drawNextEnemyPreview(r, now);
+    drawNextEnemyMini(r, now);
     Q.draw(g, r.quiz, now);
   }
 
@@ -1388,7 +1369,7 @@ function draw(now) {
   if (r.stamp && now >= r.stamp.from && now < r.stamp.until) {
     g.save();
     g.globalAlpha = Math.min(1, (now - r.stamp.from) * 6, (r.stamp.until - now) * 3);
-    drawFailStamp(g, now);
+    drawFailStamp(g, now, now - r.stamp.from, !!inQuiz);
     g.restore();
   }
 
@@ -1398,11 +1379,11 @@ function draw(now) {
   outlined(`${s.score}`, W / 2, 44, 34, "#4a2c17");
   const failCount = Object.keys(s.fails).length;
   if (failCount) outlined(`手順まちがい ×${failCount}`, 24 + 150, 82, 18, "#e8472f");
-  if (s.combo >= 2) outlined(`${s.combo} COMBO`, W / 2, 80, 22, "#e8472f");
+  if (s.combo >= 2 && !inQuiz) outlined(`${s.combo} COMBO`, W / 2, 80, 22, "#e8472f");
   g.font = "bold 16px sans-serif";
   g.textAlign = "right";
   g.fillStyle = "#4a2c17";
-  g.fillText(`${s.enemyIndex + 1} / ${s.recipe.enemies.length}`, W - 24, 82);
+  if (!inQuiz) g.fillText(`${s.enemyIndex + 1} / ${s.recipe.enemies.length}`, W - 24, 82);
 
   if (!inQuiz) drawBoard(r, now);
 
@@ -1758,6 +1739,7 @@ function tutMistake(t) {
 
 // --- 入力 ---
 window.addEventListener("keydown", (event) => {
+  if ($("dlg-sound").open) return; // おとの せってい中は、ゲームの キーを うけつけない
   unlock();
   syncMenuMusic();
   if (event.code === "Escape" && tut) {
@@ -1805,19 +1787,63 @@ window.addEventListener("pointerdown", () => {
   syncMenuMusic();
 });
 
+// どの ボタンを おしても、おとが ならす
+document.addEventListener(
+  "click",
+  (event) => {
+    if (event.target.closest("button, a.btn, summary")) {
+      unlock();
+      playSe("button");
+    }
+  },
+  true,
+);
 $("btn-start").addEventListener("click", () => {
   unlock();
-  playSe("button");
   begin();
 });
-$("btn-again").addEventListener("click", () => {
-  playSe("button");
-  begin();
+$("btn-again").addEventListener("click", () => begin());
+$("btn-cover").addEventListener("click", () => showCover());
+
+// おとの せってい(BGM・リズム・こうかおん。0〜100)
+const SOUND_KINDS = ["bgm", "rhythm", "se"];
+function syncSoundDialog() {
+  for (const kind of SOUND_KINDS) {
+    const input = $(`vol-${kind}`);
+    input.value = String(getVolume(kind));
+    input.nextElementSibling.textContent = input.value;
+  }
+}
+function openSound() {
+  unlock();
+  syncSoundDialog();
+  $("dlg-sound").showModal();
+}
+for (const kind of SOUND_KINDS) {
+  const input = $(`vol-${kind}`);
+  input.addEventListener("input", () => {
+    setVolume(kind, Number(input.value));
+    input.nextElementSibling.textContent = input.value;
+    if (kind === "se") playSe("place");
+  });
+  // マウスの ホイールでも 上下(1めもりずつ。Shift を おすと 10ずつ)
+  input.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      const step = event.shiftKey ? 10 : 2;
+      input.value = String(Math.max(0, Math.min(100, Number(input.value) + (event.deltaY < 0 ? step : -step))));
+      input.dispatchEvent(new Event("input"));
+    },
+    { passive: false },
+  );
+}
+$("btn-sound").addEventListener("click", openSound);
+$("btn-sound-play").addEventListener("click", (event) => {
+  openSound();
+  event.currentTarget.blur();
 });
-$("btn-cover").addEventListener("click", () => {
-  playSe("button");
-  showCover();
-});
+$("btn-sound-close").addEventListener("click", () => $("dlg-sound").close());
 function showOffset() {
   const ms = getOffset();
   $("offset-value").textContent = `${ms > 0 ? "+" : ""}${ms}ms`;
@@ -1863,6 +1889,7 @@ canvas.addEventListener("pointerdown", (event) => {
       // 取りつけられなくても、ドラッグは つづけられる
     }
     event.preventDefault();
+    if (ev.type === "pick") playSe("pick");
     handleQuizEvent(ev);
   }
 });
