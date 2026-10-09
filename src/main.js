@@ -20,13 +20,13 @@ import {
 } from "./game.js";
 import { activeSources, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
-import { ENEMY_FX, STATION, drawStation } from "./station.js";
+import { ENEMY_FX, STATION, drawFailStamp, drawStation } from "./station.js";
 import { loadStats, recordPlay } from "./storage.js";
 
 const W = 960;
 const H = 540;
 const LUNGE = 60; // 主人公が、こうげきで前に出る大きさ(大きく動くと目が疲れるので、小さめ)
-const BOARD = { cx: 470, cy: 193, gap: 76, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
+const BOARD = { cx: 470, cy: 193, gap: 80, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
 const APPROACH = 0.8; // 輪がちぢみはじめてから、おすまでの秒数
 const RING = 30; // 輪のいちばん大きいときの、お皿からの広がり
 const TIP_TIME = 3.2; // 豆知識を出している秒数(1行を、ゆっくり読める長さ)
@@ -129,7 +129,7 @@ function quitToCover() {
   showCover();
 }
 
-function popup(text, color, now, x = BOARD.cx, y = BOARD.cy + 68) {
+function popup(text, color, now, x = BOARD.cx, y = BOARD.cy + 108) {
   run.popups.push({ text, color, x, y, from: now });
 }
 
@@ -221,6 +221,7 @@ function endQuiz(now = songTime()) {
   run.lastPattern = -1;
   run.nextBar = Math.ceil((now + 2) / BAR);
   run.banner = { text: enemyOf(run.state).step, from: now, until: now + 2.5 };
+  if (run.state.fails[enemyOf(run.state).id]) run.popups.push({ text: "パワーアップ！", color: "#e8472f", x: 770, y: 150, from: now, big: true });
 }
 
 // 結果画面の「ふりかえり」
@@ -327,6 +328,8 @@ function update(now) {
     while (r.nextBar * BAR - now < LOOKAHEAD) {
       const bar = makeBar(enemyOf(r.state), r.nextBar * BAR, r.lastPattern);
       r.lastPattern = bar.index;
+      const steps = r.state.steps[enemyOf(r.state).id];
+      if (steps) for (const note of bar.notes) note.label = steps[note.slot % steps.length];
       r.notes.push(...bar.notes);
       r.nextBar += 1;
     }
@@ -511,12 +514,12 @@ function drawBoard(r, now) {
   // カード
   g.save();
   g.fillStyle = "rgba(74,44,23,0.18)";
-  roundRect(cx - 168, cy - 36, 336, 80, 26);
+  roundRect(cx - 168, cy - 36, 336, 96, 26);
   g.fill();
   g.fillStyle = "#fff4d8";
   g.strokeStyle = INK;
   g.lineWidth = 3;
-  roundRect(cx - 168, cy - 42, 336, 80, 26);
+  roundRect(cx - 168, cy - 42, 336, 96, 26);
   g.fill();
   g.stroke();
   g.fillStyle = "rgba(74,44,23,0.55)";
@@ -534,6 +537,15 @@ function drawBoard(r, now) {
     const x = cx + (i - (group.length - 1) / 2) * gap;
     const y = cy - 2;
     const dt = note.time - now;
+    if (note.label) {
+      g.save();
+      g.fillStyle = INK;
+      g.font = "bold 13px sans-serif";
+      g.textAlign = "center";
+      g.globalAlpha = note.status === "miss" ? 0.45 : 1;
+      g.fillText(note.label, x, y + pr + 20, gap - 6);
+      g.restore();
+    }
     if (note.status === "hit") {
       const t = Math.max(0, now - note.hitAt);
       drawPlate(note.key, x, y, pr, "hit");
@@ -571,6 +583,81 @@ function drawBoard(r, now) {
       g.restore();
     }
   });
+}
+
+// --- 強化形態(手順えらびをまちがえた敵) ---
+// 大きく、赤くひかり、ツノ・トゲのかた飾り・おおきな包丁をもつ。(あとから、専用の絵にさしかえられる)
+const STRONG_MAX_HEIGHT = 330;
+
+function strongScale(name, scale) {
+  const img = images[name];
+  if (!img || !img.naturalHeight) return scale;
+  return scale * Math.min(1.28, STRONG_MAX_HEIGHT / (img.naturalHeight * scale));
+}
+
+function drawStrongBack(cx, bottom, w, h, now) {
+  const pulse = 0.3 + Math.sin(now * 3) * 0.06;
+  const aura = g.createRadialGradient(cx, bottom - h * 0.5, h * 0.1, cx, bottom - h * 0.5, h * 0.85);
+  aura.addColorStop(0, `rgba(255,70,40,${pulse + 0.15})`);
+  aura.addColorStop(1, "rgba(255,70,40,0)");
+  g.fillStyle = aura;
+  g.fillRect(cx - h, bottom - h * 1.5, h * 2, h * 1.7);
+}
+
+function drawStrongFront(cx, bottom, w, h) {
+  const top = bottom - h;
+  g.save();
+  g.lineJoin = "round";
+  g.strokeStyle = INK;
+  g.lineWidth = 4;
+  // ツノ
+  g.fillStyle = "#ff5a2a";
+  [-1, 1].forEach((side) => {
+    g.beginPath();
+    g.moveTo(cx + side * w * 0.12, top + h * 0.08);
+    g.lineTo(cx + side * w * 0.3, top - h * 0.12);
+    g.lineTo(cx + side * w * 0.3 + side * -2, top + h * 0.2);
+    g.closePath();
+    g.fill();
+    g.stroke();
+  });
+  // かた飾り(金のトゲ)
+  [-1, 1].forEach((side) => {
+    const px = cx + side * w * 0.5;
+    const py = bottom - h * 0.52;
+    g.fillStyle = "#f2b630";
+    for (let i = -1; i <= 1; i += 1) {
+      g.beginPath();
+      g.moveTo(px + i * 10 - 7, py - 6);
+      g.lineTo(px + i * 14 + side * 4, py - 30);
+      g.lineTo(px + i * 10 + 7, py - 6);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
+    g.beginPath();
+    g.arc(px, py, 15, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+  });
+  // おおきな包丁(主人公のほうへ、つき出す)
+  g.translate(cx - w * 0.62, bottom - h * 0.46);
+  g.rotate(-0.5);
+  g.fillStyle = "#e9edf2";
+  g.beginPath();
+  g.moveTo(0, -8);
+  g.lineTo(-h * 0.36, -8);
+  g.quadraticCurveTo(-h * 0.41, 8, -h * 0.36, 24);
+  g.lineTo(0, 24);
+  g.closePath();
+  g.fill();
+  g.stroke();
+  g.fillStyle = "#6b3f1e";
+  g.beginPath();
+  g.roundRect(0, -6, 38, 28, 8);
+  g.fill();
+  g.stroke();
+  g.restore();
 }
 
 const tmp = document.createElement("canvas");
@@ -722,17 +809,28 @@ function draw(now) {
   const weak = r.enemyPose === "normal" && s.enemyHp / s.enemyMax < 0.5 ? "damage" : r.enemyPose;
   const ename = `${enemy.id}_${weak}`;
   const edy = r.enemyPose === "normal" ? bounce : 0;
-  if (flinch > 0) drawFlash(ename, 770, 398 + edy, SCALE[enemy.id], flinch * 0.5, flinch * 8);
-  else drawSprite(ename, 770, 398, SCALE[enemy.id], { dy: edy });
+  const strong = s.fails[enemy.id] === true;
+  const escale = strong ? strongScale(ename, SCALE[enemy.id]) : SCALE[enemy.id];
+  const eimg = images[ename];
+  const ew = eimg?.naturalWidth ? eimg.naturalWidth * escale : 0;
+  const eh = eimg?.naturalHeight ? eimg.naturalHeight * escale : 0;
+  if (strong && ew && r.enemyPose !== "down") drawStrongBack(770, 398 + edy, ew, eh, now);
+  if (flinch > 0) drawFlash(ename, 770, 398 + edy, escale, flinch * 0.5, flinch * 8);
+  else drawSprite(ename, 770, 398, escale, { dy: edy });
+  if (strong && ew && r.enemyPose !== "down") drawStrongFront(770, 398 + edy, ew, eh);
 
   for (const shot of r.shots) drawShot(shot, now, heroX);
   for (const b of r.bursts) drawBurst(b, now);
   for (const c of r.chunks) drawChunk(c, now);
 
+  if (s.fails[enemy.id] && r.phase === "fight") drawFailStamp(g, now);
+
   // 体力など
   bar(24, 36, 300, 20, s.playerHp / PLAYER_HP, "#4ecb71", "みならい りょうりにん");
   bar(W - 324, 36, 300, 20, s.enemyHp / s.enemyMax, "#ff6b6b", enemy.name);
   outlined(`${s.score}`, W / 2, 44, 34, "#4a2c17");
+  const failCount = Object.keys(s.fails).length;
+  if (failCount) outlined(`しっぱい ×${failCount}`, 24 + 150, 82, 18, "#e8472f");
   if (s.combo >= 2) outlined(`${s.combo} COMBO`, W / 2, 80, 22, "#e8472f");
   g.font = "bold 16px sans-serif";
   g.textAlign = "right";

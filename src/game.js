@@ -26,7 +26,8 @@ export function createState(recipe = DEFAULT_RECIPE) {
     recipe,
     tips: [], // 出てきた豆知識(結果画面で見返す)
     review: [], // 手順えらびの記録(結果画面で見返す)
-    fails: {}, // 失敗した手順(敵のid → true)。調理台の絵に出る
+    fails: {}, // 失敗した手順(敵のid → true)。調理台の絵に出る・敵が強くなる
+    steps: {}, // えらんだやりかたの動き(敵のid → 文字の並び)。矢印のお皿の下に出る
     score: 0,
     combo: 0,
     maxCombo: 0,
@@ -112,6 +113,7 @@ export function enemyOf(state) {
 export function answerQuiz(state, { step, quiz }, choices, index, failKey) {
   const picked = choices[index];
   const correct = picked.correct === true;
+  if (picked.steps) state.steps[failKey] = picked.steps;
   if (!correct) {
     state.fails[failKey] = true;
     state.enemyMax = Math.round(state.enemyMax * PENALTY);

@@ -99,41 +99,12 @@ function bowl(g, stage, p, t, fails) {
       g.stroke();
     }
   }
-  if (fails.egg && eggP > 0.2) {
-    // からが入っちゃった
-    g.fillStyle = "#f3e6cf";
-    g.strokeStyle = "#8a6a43";
-    g.lineWidth = 2;
-    [[-34, -4, 1], [12, 6, -1], [30, -6, 1]].forEach(([dx, dy, d]) => {
-      g.beginPath();
-      g.moveTo(cx + dx, top + dy);
-      g.lineTo(cx + dx + 14 * d, top + dy + 3);
-      g.lineTo(cx + dx + 5 * d, top + dy - 7);
-      g.closePath();
-      g.fill();
-      g.stroke();
-    });
-  }
-  if (fails.mix && mixP > 0.3) {
-    // ダマ
-    g.fillStyle = "rgba(255,240,200,0.9)";
-    [[-40, 2], [-8, 8], [28, -2], [46, 6], [10, -6]].forEach(([dx, dy]) => {
-      g.beginPath();
-      g.arc(cx + dx, top + 2 + dy, 6, 0, Math.PI * 2);
-      g.fill();
-    });
-  }
   g.restore();
   g.lineWidth = 3;
   g.strokeStyle = INK;
   g.beginPath();
   g.ellipse(cx, top, 92, 24, 0, 0, Math.PI * 2);
   g.stroke();
-  if (fails.milk && milkP > 0.3) {
-    // こぼれた牛乳
-    ellipse(g, cx + 20, STATION.y + 2, 120, 9, "rgba(244,248,255,0.9)", "rgba(120,170,230,0.6)", 2);
-  }
-
   // 泡立て器(③のとき、ぐるぐる)
   if (stage === 2) {
     const a = t * 7;
@@ -245,6 +216,155 @@ function plate(g, p, t) {
   }
 }
 
+
+// ---- 失敗の絵(大きく、目立つ場所に) ----
+function shard(g, x, y, size, turn) {
+  g.save();
+  g.translate(x, y);
+  g.rotate(turn);
+  g.fillStyle = "#f6ead2";
+  g.strokeStyle = "#7a5a33";
+  g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(-size, size * 0.4);
+  g.lineTo(-size * 0.2, -size * 0.7);
+  g.lineTo(size * 0.3, -size * 0.1);
+  g.lineTo(size, size * 0.5);
+  g.lineTo(size * 0.1, size * 0.8);
+  g.closePath();
+  g.fill();
+  g.stroke();
+  g.restore();
+}
+
+function flame(g, x, y, size, t, seed) {
+  const sway = Math.sin(t * 6 + seed) * size * 0.12;
+  g.beginPath();
+  g.moveTo(x - size * 0.5, y);
+  g.quadraticCurveTo(x - size * 0.6, y - size * 0.7, x + sway, y - size * 1.3);
+  g.quadraticCurveTo(x + size * 0.6, y - size * 0.6, x + size * 0.5, y);
+  g.closePath();
+  g.fillStyle = "#ff7a1a";
+  g.fill();
+  g.strokeStyle = INK;
+  g.lineWidth = 3;
+  g.stroke();
+  g.beginPath();
+  g.moveTo(x - size * 0.25, y);
+  g.quadraticCurveTo(x - size * 0.3, y - size * 0.4, x + sway * 0.5, y - size * 0.75);
+  g.quadraticCurveTo(x + size * 0.3, y - size * 0.35, x + size * 0.25, y);
+  g.closePath();
+  g.fillStyle = "#ffd23f";
+  g.fill();
+}
+
+function failures(g, stage, p, t, fails) {
+  const cx = STATION.x;
+  const top = STATION.y - 92;
+  g.save();
+  g.lineJoin = "round";
+  // ① 卵:からが、ボウルにも、台にも ちらばる(②③のあいだも のこる)
+  if (fails.egg && stage <= 2 && (stage > 0 || p > 0.15)) {
+    shard(g, cx - 40, top - 4, 20, -0.3);
+    shard(g, cx + 30, top + 2, 17, 0.5);
+    shard(g, cx - 138, STATION.y - 6, 22, 0.2);
+    shard(g, cx + 150, STATION.y - 2, 19, -0.5);
+    shard(g, cx + 104, STATION.y + 10, 14, 0.9);
+  }
+  // ② 牛乳:台いっぱいに こぼれる
+  if (fails.milk && stage <= 2 && (stage > 1 || p > 0.15)) {
+    g.fillStyle = "#f4f8ff";
+    g.strokeStyle = "#7aa8de";
+    g.lineWidth = 3;
+    g.beginPath();
+    g.ellipse(cx + 10, STATION.y + 8, 190, 20, 0, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.fillStyle = "#f4f8ff";
+    g.beginPath();
+    g.roundRect(cx + 70, top + 20, 18, 72 + Math.sin(t * 3) * 3, 9);
+    g.fill();
+    g.stroke();
+    g.beginPath();
+    g.arc(cx + 79, STATION.y - 4, 8, 0, Math.PI * 2);
+    g.fill();
+  }
+  // ③ 混ぜる:ダマと粉が、ふわっと ひろがる
+  if (fails.mix && stage <= 2 && (stage > 2 || p > 0.2)) {
+    g.fillStyle = "#fff1c9";
+    g.strokeStyle = "#a47a2c";
+    g.lineWidth = 3;
+    [[-46, 4, 13], [-8, 10, 15], [32, 0, 14], [58, 8, 11], [10, -6, 12]].forEach(([dx, dy, r]) => {
+      g.beginPath();
+      g.arc(cx + dx, top + 4 + dy, r, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    });
+    for (let i = 0; i < 6; i += 1) {
+      const ph = (t * 0.5 + i * 0.17) % 1;
+      g.fillStyle = `rgba(255,248,230,${0.8 * (1 - ph)})`;
+      g.beginPath();
+      g.arc(cx - 90 + i * 36 + Math.sin(ph * 6 + i) * 8, top - 10 - ph * 80, 10 + ph * 12, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  // ④ 焼く:こげて 火がでる。まっ黒な けむり
+  if (fails.butter && stage === 3 && p > 0.1) {
+    const k = Math.min(1, p * 2);
+    [[-70, 1], [-20, 1.3], [38, 1.1], [86, 0.9]].forEach(([dx, sc], i) => {
+      g.globalAlpha = k;
+      flame(g, cx + dx, STATION.y - 54, 46 * sc, t, i * 1.7);
+    });
+    g.globalAlpha = 1;
+    for (let i = 0; i < 5; i += 1) {
+      const ph = (t * 0.45 + i * 0.2) % 1;
+      g.fillStyle = `rgba(40,40,40,${0.75 * (1 - ph) * k})`;
+      g.beginPath();
+      g.arc(cx - 70 + i * 36 + Math.sin(ph * 5 + i) * 16, STATION.y - 120 - ph * 150, 22 + ph * 30, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  // ⑤ 仕上げ:シロップ・やけどあと
+  if (fails.syrup && stage === 4 && p > 0.05) {
+    g.fillStyle = "#8a4b12";
+    g.strokeStyle = INK;
+    g.lineWidth = 3;
+    g.beginPath();
+    g.ellipse(cx + 20, STATION.y + 8, 170, 18, 0, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    [[-150, -36, 18], [-118, -86, 12], [150, -50, 16], [170, -100, 11], [-160, 0, 12], [118, -16, 13]].forEach(([dx, dy, r]) => {
+      g.beginPath();
+      g.arc(cx + dx, STATION.y + dy, r, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    });
+  }
+  g.restore();
+}
+
+// 失敗した手順の、大きな「しっぱい！」。調理台の下の、あいている場所に出す。
+export function drawFailStamp(g, t) {
+  g.save();
+  g.translate(STATION.x, 458);
+  g.rotate(-0.1);
+  const pulse = 1 + Math.sin(t * 3) * 0.02;
+  g.scale(pulse, pulse);
+  g.fillStyle = "#fff4d8";
+  g.strokeStyle = "#e8472f";
+  g.lineWidth = 6;
+  g.beginPath();
+  g.roundRect(-150, -36, 300, 72, 18);
+  g.fill();
+  g.stroke();
+  g.font = "bold 50px sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillStyle = "#e8472f";
+  g.fillText("しっぱい！", 0, 4);
+  g.restore();
+}
+
 // 調理台をえがく。stage は敵の番号(0〜4)、p は、いまの敵をどこまで倒したか(0〜1)。
 export function drawStation(g, stage, p, t, fails = {}) {
   g.save();
@@ -252,5 +372,6 @@ export function drawStation(g, stage, p, t, fails = {}) {
   if (stage <= 2) bowl(g, stage, p, t, fails);
   else if (stage === 3) pan(g, p, t, fails);
   else plate(g, p, t);
+  failures(g, stage, p, t, fails);
   g.restore();
 }
