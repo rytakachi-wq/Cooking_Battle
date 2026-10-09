@@ -19,7 +19,7 @@ import {
   registerHit,
   registerMiss,
 } from "./game.js";
-import { activeSources, alive, cueAtSongTime, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
+import { activeSources, alive, cueAtSongTime, restCueAtSongTime, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import * as Q from "./quiz.js";
 import { drawActionFx, drawQuizScene } from "./scenes.js";
@@ -117,6 +117,7 @@ function begin() {
   run = {
     state: createState(),
     notes: [],
+    restCues: [], // 矢印の ない拍の、専用の音
     nextBar: 0,
     lastPattern: -1,
     phase: "quiz", // quiz(えらぶ) / fight(リズム) / down(倒したあと) / end
@@ -175,6 +176,7 @@ function setEnemy(pose, now, length) {
 
 function clearPending() {
   for (const note of run.notes) if (note.status === "pending") note.status = "cancel";
+  run.restCues = []; // 休みの音も、ならさない
 }
 
 // --- 手順ならべ(正しい じゅんばんに ならべる) ---
@@ -573,7 +575,21 @@ function update(now) {
       const steps = r.state.steps[enemyOf(r.state).id]; // いつも、正しい手順の名前
       for (const note of bar.notes) if (steps) note.label = steps[note.slot];
       r.notes.push(...bar.notes);
+      // 矢印の ない拍(休み)にも、それ専用の音(敵が 見せるときと、まねして おすときの、どちらにも)
+      const taken = new Set(bar.notes.map((n) => n.beat));
+      for (let k = 0; k <= 6; k += 1) {
+        const p = k * 0.5;
+        if (taken.has(p)) continue;
+        const kind = p === 3 ? "end" : p % 1 === 0 ? "beat" : "half";
+        r.restCues.push({ time: r.nextBar * BAR + p * BEAT, kind, cued: false }, { time: (r.nextBar + 1) * BAR + p * BEAT, kind, cued: false });
+      }
       r.nextBar += 2;
+    }
+    for (const cue of r.restCues) {
+      if (!cue.cued && cue.time - now < 0.05) {
+        cue.cued = true;
+        if (cue.time - now > -0.3) restCueAtSongTime(cue.time, cue.kind);
+      }
     }
     for (const note of r.notes) {
       // 敵が やって見せる時刻に、音を出して、敵が動く
@@ -625,6 +641,7 @@ function update(now) {
     r.enemyUntil = 0;
   }
   r.notes = r.notes.filter((note) => note.time > now - 2.4 && !(note.status === "cancel"));
+  r.restCues = r.restCues.filter((cue) => cue.time > now - 1);
   r.popups = r.popups.filter((p) => now - p.from < 0.8);
   r.fx = r.fx.filter((f) => now - f.from < f.life);
   r.shots = r.shots.filter((p) => now - p.from < 0.25);

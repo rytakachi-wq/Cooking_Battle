@@ -277,3 +277,19 @@ export function cueAtSongTime(t, key, offbeat = false) {
   tone(f * 2, when, 0.08, { type: "sine", volume: offbeat ? 0.55 : 0.3 });
   if (offbeat) tone(f * 4, when, 0.04, { type: "triangle", volume: 0.4 }); // 頭の クリック
 }
+
+// 矢印の ない拍(休み)の、専用の音。矢印の音(音程のある ピッ)とは ちがう、「コツ」「シャ」「ドン」の ような 音。
+//   beat=表拍の休み(木の ブロックの コツ)  half=裏拍の休み(シャカの シャ)  end=4拍めの休み(やわらかい ドン)
+export function restCueAtSongTime(t, kind) {
+  if (!ctx || !master) return;
+  const when = ctx.currentTime + Math.max(0, t - songTime());
+  if (kind === "beat") {
+    tone(1046, when, 0.05, { type: "sine", volume: 0.6, to: 700 });
+    hiss(when, 0.03, { volume: 0.25, freq: 5000 });
+  } else if (kind === "half") {
+    hiss(when, 0.06, { volume: 0.34, freq: 3500 });
+    tone(520, when, 0.03, { type: "sine", volume: 0.2 });
+  } else {
+    tone(180, when, 0.18, { type: "sine", volume: 0.8, to: 90 });
+  }
+}
