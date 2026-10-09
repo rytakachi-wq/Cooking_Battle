@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>超すごい調理バトル～今日調子バチバチ～</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+
+    <!-- 表紙 -->
+    <section id="screen-cover" class="screen" aria-label="表紙">
+      <h1 class="title">超すごい調理バトル<br><span class="sub">～今日調子バチバチ～</span></h1>
+      <img class="hero" src="../assets/chars/hero_normal.png" alt="見習い料理人">
+      <p class="how">
+        曲に合わせて、流れてくる矢印を <b>同じ矢印キー</b> で押そう。<br>
+        ぴったり押すと、食材モンスターにダメージ！ ミスすると、自分の体力がへるよ。<br>
+        卵 → 牛乳 → ミックス → バター を倒して、ホットケーキを完成させよう。
+      </p>
+      <div class="menu">
+        <button id="btn-start" class="btn btn-main" type="button">はじめる</button>
+        <button id="btn-mute" class="btn btn-sub" type="button">おと：あり</button>
+      </div>
+      <div class="offset" role="group" aria-label="タイミング調整">
+        <span>タイミング調整</span>
+        <button id="btn-offset-down" class="btn btn-small" type="button" aria-label="矢印をおそくする">おそく −</button>
+        <output id="offset-value">0ms</output>
+        <button id="btn-offset-up" class="btn btn-small btn-sub" type="button" aria-label="矢印をはやくする">はやく ＋</button>
+      </div>
+      <p class="note">曲のリズムと、矢印のタイミングが ずれて感じるときに、10ミリ秒ずつ直せるよ。</p>
+      <p id="best" class="note"></p>
+      <p class="note">やめるときは Esc キー。画面を クリックすると おとが ならせるよ。</p>
+    </section>
+
+    <!-- 遊ぶ画面 -->
+    <section id="screen-play" class="screen" aria-label="プレイ" hidden>
+      <canvas id="stage" width="960" height="540"></canvas>
+    </section>
+
+    <!-- 結果画面 -->
+    <section id="screen-result" class="screen" aria-label="結果" hidden>
+      <h2 id="r-title" class="title"></h2>
+      <img id="r-hero" class="hero" src="../assets/chars/hero_win.png" alt="">
+      <p id="r-rank" class="rank"></p>
+      <dl class="scores">
+        <div><dt>とくてん</dt><dd id="r-score"></dd></div>
+        <div><dt>パーフェクト</dt><dd id="r-perfect"></dd></div>
+        <div><dt>グッド</dt><dd id="r-good"></dd></div>
+        <div><dt>ミス</dt><dd id="r-miss"></dd></div>
+        <div><dt>さいだいコンボ</dt><dd id="r-combo"></dd></div>
+        <div><dt>さいこうとくてん</dt><dd id="r-best"></dd></div>
+      </dl>
+      <p id="r-record" class="record" hidden>しんきろく！</p>
+      <div class="menu">
+        <button id="btn-again" class="btn btn-main" type="button">もういちど</button>
+        <button id="btn-cover" class="btn btn-sub" type="button">ひょうしへ</button>
+      </div>
+    </section>
+
+  </main>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
