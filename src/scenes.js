@@ -554,19 +554,22 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
       // お皿へ:ホットケーキを うつす
       const k = ease(p);
       disc(g, lerp(700, 480, k), lerp(340, 330, k) - Math.sin(k * Math.PI) * 70, 66, 18, "#e0a24c");
-    } else if (rank === 2) {
-      // バター:ぽとん
-      const k = Math.min(1, p / 0.7);
-      butter(g, 480, lerp(190, 302, k * k) + (p > 0.7 ? -Math.sin((p - 0.7) * 10) * 6 : 0));
     } else {
-      // シロップ:とろーり
-      g.save();
-      g.translate(430, 230);
-      g.rotate(-0.9 * ease(Math.min(1, p * 2)));
-      syrupBottle(g, 0, 40);
-      g.restore();
-      if (p > 0.3) stream(g, 456, 252, 482, 298, 9, "#9a5314");
-      oval(g, 482, 300, 16 + 52 * p, 5 + 12 * p, "#8a4b12", INK, 3);
+      // バターを のせて、シロップを かける
+      if (p < 0.4) {
+        const k = Math.min(1, p / 0.28);
+        butter(g, 480, lerp(190, 302, k * k));
+      } else {
+        butter(g, 480, 302);
+        const q = (p - 0.4) / 0.6;
+        g.save();
+        g.translate(430, 230);
+        g.rotate(-0.9 * ease(Math.min(1, q * 2)));
+        syrupBottle(g, 0, 40);
+        g.restore();
+        if (q > 0.3) stream(g, 456, 252, 482, 298, 9, "#9a5314");
+        oval(g, 482, 300, 16 + 52 * q, 5 + 12 * q, "#8a4b12", INK, 3);
+      }
     }
   }
   g.restore();

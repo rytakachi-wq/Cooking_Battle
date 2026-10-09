@@ -13,24 +13,24 @@
     <section id="screen-cover" class="screen" aria-label="表紙">
       <h1 class="title logo-title"><img class="logo" src="../assets/ui/title_logo.png" alt="チョ～集中！チョット調理ジャン！～チャッ！🔥カリッ！🍳パリッ！～"></h1>
       <img class="hero" src="../assets/chars/hero_normal.png" alt="見習い料理人">
-      <p class="how">
-        料理の手順ごとに、①<b>手順を 正しい じゅんばんに ならべる</b> → ②食材モンスターが 矢印を<b>やって見せる</b>(音と ひかり) → ③つぎの小節で<b>まねして</b> 同じ矢印キーを おす、のくりかえし。<br>
-        ぴったり押すと ダメージ、ミスすると 自分の体力が へるよ。ならべまちがえると、敵が 強くなるよ。
-      </p>
       <div class="menu">
         <button id="btn-start" class="btn btn-main" type="button">はじめる</button>
         <button id="btn-tutorial" class="btn btn-sub" type="button">あそびかた</button>
-        <button id="btn-mute" class="btn btn-sub" type="button">おと：あり</button>
       </div>
-      <div class="offset" role="group" aria-label="タイミング調整">
-        <span>タイミング調整</span>
-        <button id="btn-offset-down" class="btn btn-small" type="button" aria-label="矢印をおそくする">おそく −</button>
-        <output id="offset-value">0ms</output>
-        <button id="btn-offset-up" class="btn btn-small btn-sub" type="button" aria-label="矢印をはやくする">はやく ＋</button>
+      <div class="menu menu-sub">
+        <button id="btn-mute" class="btn btn-small" type="button">おと：あり</button>
+        <a class="btn btn-small" href="../support.html">サポート</a>
+        <details class="settings">
+          <summary class="btn btn-small">せってい</summary>
+          <div class="offset" role="group" aria-label="タイミング調整">
+            <span>タイミング調整</span>
+            <button id="btn-offset-down" class="btn btn-small" type="button" aria-label="矢印をおそくする">おそく −</button>
+            <output id="offset-value">0ms</output>
+            <button id="btn-offset-up" class="btn btn-small" type="button" aria-label="矢印をはやくする">はやく ＋</button>
+          </div>
+        </details>
       </div>
-      <p class="note">曲のリズムと、矢印のタイミングが ずれて感じるときに、10ミリ秒ずつ直せるよ。</p>
       <p id="best" class="note"></p>
-      <p class="note">やめるときは Esc キー。画面を クリックすると おとが ならせるよ。</p>
     </section>
 
     <!-- 遊ぶ画面 -->

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>サポート｜チョ～集中！チョット調理ジャン！</title>
+  <style>
+    :root { --bg: #fff4dc; --ink: #4a2c17; --card: #ffffff; --line: #e8d6b8; --accent: #e8472f; --main: #ff8a3d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.8 "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif; }
+    main { max-width: 780px; margin: 0 auto; padding: 20px 16px 60px; }
+    h1 { font-size: clamp(24px, 5vw, 32px); margin: 8px 0; color: var(--accent); }
+    h2 { margin: 34px 0 8px; padding-bottom: 6px; border-bottom: 3px solid var(--line); font-size: 20px; }
+    h3 { margin: 18px 0 4px; font-size: 16px; color: var(--accent); }
+    p, li { margin: 6px 0; }
+    ul, ol { padding-left: 1.3em; }
+    .card { background: var(--card); border: 3px solid var(--ink); border-radius: 16px; padding: 4px 18px 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { white-space: nowrap; width: 9em; }
+    kbd { display: inline-block; min-width: 1.8em; padding: 0 6px; text-align: center; background: #fff; border: 2px solid var(--ink); border-radius: 6px; font-weight: bold; }
+    a.back { display: inline-block; margin-top: 8px; padding: 8px 22px; color: var(--ink); background: var(--main); border: 3px solid var(--ink); border-radius: 999px; font-weight: bold; text-decoration: none; }
+    .note { font-size: 14px; opacity: 0.8; }
+  </style>
+</head>
+<body>
+<main>
+  <a class="back" href="src/index.html">◀ ゲームに もどる</a>
+  <h1>サポート</h1>
+  <p>「チョ～集中！チョット調理ジャン！」の あそびかたや、こまったときのことを、ここに まとめています。</p>
+
+  <h2>ゲームの ながれ</h2>
+  <div class="card">
+    <ol>
+      <li><b>じゅんびと 手順の もんだい</b>:カードを ドラッグして、正しい じゅんばんに ならべます。ならべたら「けってい！」。主人公が その じゅんで やって見せます。</li>
+      <li><b>リズムの たたかい</b>:食材モンスターが 矢印を「やって見せ」ます(音と ひかり)。つぎの小節で、<b>おなじ矢印キー</b>を まねして おします。</li>
+      <li>これを、卵 → 牛乳 → ホットケーキミックス → バター → メープルシロップ の じゅんに くりかえして、ホットケーキを かんせい させます。</li>
+    </ol>
+  </div>
+
+  <h2>そうさ</h2>
+  <div class="card">
+    <table>
+      <tr><th>カードを ならべる</th><td>ドラッグして、上の 1・2・3 の わくに おく。わくどうしで いれかえも できます。クリックでも おける・もどせる。</td></tr>
+      <tr><th>けってい</th><td>のこり1まいに なると 出る「けってい！」ボタン、または <kbd>Enter</kbd> キー。</td></tr>
+      <tr><th>数字キー</th><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> … 手もとの カードを、左から 数えて えらぶ。<kbd>Backspace</kbd> で 1つ もどす。</td></tr>
+      <tr><th>リズム</th><td>矢印キー <kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd></td></tr>
+      <tr><th>おと</th><td><kbd>M</kbd> キーで ON / OFF。</td></tr>
+      <tr><th>やめる</th><td><kbd>Esc</kbd> キー。</td></tr>
+    </table>
+  </div>
+
+  <h2>リズムの 見かた</h2>
+  <div class="card">
+    <h3>きいて、まねする</h3>
+    <p>カードが <b>青く</b>(ふたの マーク)なっている あいだは「ききましょう」。まだ おせません。カードが <b>あたたかい色</b>に かわったら「まねして おそう！」。</p>
+    <h3>拍の ものさし</h3>
+    <p>カードの下の 丸が、1・2・3・休 の 4拍です。<b>大きい丸</b>が 表拍(拍の頭)、<b>小さい丸</b>が 裏拍(その あいだの 半拍)。小さい丸の 上に ある矢印は、半拍の 矢印です。</p>
+    <h3>音の たかさ</h3>
+    <p>表拍は <b>高い音</b>、裏拍は <b>低い音</b>で 鳴ります。</p>
+    <h3>とどめ</h3>
+    <p>敵の 体力が 0に なっても、その 小節の 矢印を ぜんぶ おし終えるまで 敵は たおれません。さいごの 矢印を はずすと、少しだけ 体力が もどります。</p>
+  </div>
+
+  <h2>しっぱいの ルール</h2>
+  <div class="card">
+    <table>
+      <tr><th>手順を まちがえる</th><td>主人公の 体力が へり、<b>つぎの敵が 強くなります</b>(大きく、強い姿・体力+15%)。体力が 0に なると ゲームオーバー。</td></tr>
+      <tr><th>リズムの ミス</th><td>主人公の 体力が へります。ひとつの 敵との たたかいで 3回ミスすると、<b>料理が しっぱい</b>した 見た目に なります。</td></tr>
+    </table>
+  </div>
+
+  <h2>こまったとき</h2>
+  <div class="card">
+    <h3>音が 出ない</h3>
+    <p>ブラウザの きまりで、画面を 1回 クリックするまで 音が 出ません。<kbd>M</kbd> キーで OFF に なっていないかも たしかめてください。</p>
+    <h3>矢印の タイミングが ずれる</h3>
+    <p>表紙の「せってい」にある「タイミング調整」で、10ミリ秒ずつ 直せます。矢印が 早いと 感じるときは「おそく」、おそいと 感じるときは「はやく」。スピーカーや ブルートゥースの 機器で ずれかたが ちがいます。</p>
+    <h3>最初の あそびかたを もういちど 見たい</h3>
+    <p>表紙の「あそびかた」を おしてください。</p>
+    <h3>キャラクターが 出ない・画面が くずれる</h3>
+    <p>ページを 読みこみなおして(<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>)ください。</p>
+  </div>
+
+  <h2>きろくについて</h2>
+  <div class="card">
+    <p>最高得点・クリア回数・おとの 設定・タイミング調整は、<b>この パソコンの ブラウザの中だけ</b>に 保存されます。名前などの 個人の 情報は あつめません。</p>
+  </div>
+
+  <h2>もんだいの 内容について</h2>
+  <div class="card">
+    <p>手順の もんだいと ワンポイントは、家庭の 料理を まなぶための 参考です。実際に 料理を する ときは、食材の 表示や、おうちの人の 指示に したがってください。</p>
+    <p class="note">やけど・けがを したときは、おうちの人に すぐ 伝えて、ひどいときは 病院へ 行きましょう。</p>
+  </div>
+
+  <a class="back" href="src/index.html">◀ ゲームに もどる</a>
+</main>
+</body>
+</html>

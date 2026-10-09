@@ -195,8 +195,10 @@ function quizzesFor(step, candidates, failKey) {
   // 1つめは かならず。2つめ以降は、あそぶたびに ランダムで 0〜(のこり全部)問 出す → 1つの手順に、1〜3問
   const extras = shuffle(candidates.slice(1));
   const quizzes = [candidates[0], ...extras.slice(0, Math.floor(Math.random() * (extras.length + 1)))];
+  // 出す じゅんばん:データの show(小さいほうが 先)。1つめ(ほんとうの やりかた)は、じゅんばんが うしろでも、動きと 名前の もとに なる
+  quizzes.sort((a, b) => (a.show ?? candidates.indexOf(a) + 1) - (b.show ?? candidates.indexOf(b) + 1));
   return quizzes.map((quiz, index) => ({
-    def: { step: quizzes.length > 1 ? `${step}  (${index + 1}/${quizzes.length})` : step, quiz, main: index === 0, variant: index },
+    def: { step: quizzes.length > 1 ? `${step}  (${index + 1}/${quizzes.length})` : step, quiz, main: quiz === candidates[0], variant: quiz === candidates[0] ? 0 : candidates.indexOf(quiz) },
     failKey,
   }));
 }
@@ -1418,6 +1420,28 @@ function drawKeyCap(x, y, key, down) {
   g.textBaseline = "alphabetic";
 }
 
+// チュートリアルの 大見出し(いま、あそびかたを 見ているところだと わかるように)
+function tutHeading(n, caption, color = "#e8472f") {
+  g.save();
+  g.fillStyle = "#4a2c17";
+  roundRect(0, 0, W, 54, 0);
+  g.fill();
+  g.fillStyle = "#ffd23f";
+  roundRect(14, 9, 170, 36, 18);
+  g.fill();
+  g.fillStyle = "#4a2c17";
+  g.font = "bold 22px sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(`あそびかた ${n}/${TUT_SLIDES}`, 99, 28);
+  g.fillStyle = "#fff4d8";
+  g.textAlign = "left";
+  g.font = "bold 26px sans-serif";
+  g.fillText(caption, 204, 28);
+  g.restore();
+  g.textBaseline = "alphabetic";
+}
+
 function drawTutorial(t) {
   drawStageBg();
   if (tut.slide === 0) tutArrange(t % 10.5);
@@ -1492,7 +1516,7 @@ function tutArrange(t) {
   // 手が カードの上に くるよう、カード → 手の じゅんで 描く
   Q.draw(g, q, t);
   if (cursor && !allPlaced) drawHand(cursor.x, cursor.y, cursor.pinch);
-  outlined("ドラッグして ならべよう", W / 2, 60, 34, "#e8472f");
+  tutHeading(1, "ドラッグして ならべよう");
 }
 
 // ② 敵が やって見せる → まねして おす
@@ -1523,8 +1547,8 @@ function tutCopy(t) {
     const down = notes.some((n) => n.key === key && t >= n.time && t < n.time + 0.2);
     drawKeyCap(380 + i * 70, 470, key, down);
   });
-  if (calling) outlined("みて ♪", W / 2, 60, 38, "#3d79d6");
-  else if (t < 2 * BAR) outlined("まねして おす！", W / 2, 60, 38, "#e8472f");
+  if (calling) tutHeading(2, "みて ♪", "#3d79d6");
+  else tutHeading(2, "まねして おす！");
 }
 
 // ③ まちがえると
@@ -1575,6 +1599,7 @@ function tutMistake(t) {
     }
   }
   outlined("しっぱい…", 710, 380, 28, "#555");
+  tutHeading(3, "まちがえると…");
 }
 
 // --- 入力 ---

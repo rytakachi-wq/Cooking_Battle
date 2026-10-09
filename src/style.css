@@ -255,3 +255,21 @@ html, body {
 .tut-dots { letter-spacing: 0.3em; font-weight: bold; }
 
 [hidden] { display: none !important; }
+
+/* 画面の まんなかに、そろえる(表紙・チュートリアル・プレイ・結果) */
+html, body { min-height: 100%; }
+body { min-height: 100vh; }
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.menu-sub { align-items: flex-start; }
+.btn-small, a.btn { text-decoration: none; }
+a.btn { display: inline-block; background: var(--sub); }
+.settings summary { list-style: none; cursor: pointer; display: inline-block; background: var(--sub); }
+.settings summary::-webkit-details-marker { display: none; }
+.settings[open] { flex-basis: 100%; text-align: center; }
+.settings .offset { margin-top: 10px; }
