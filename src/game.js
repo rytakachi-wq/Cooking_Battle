@@ -124,7 +124,7 @@ export function enemyOf(state) {
 export function answerQuiz(state, def, items, order, failKey) {
   const { step, quiz } = def;
   const correct = order.length === items.length && order.every((index, pos) => items[index].rank === pos);
-  if (def.main) state.steps[failKey] = quiz.steps.map((item) => item.label); // リズムの名前は、1つめの問題(ほんとうの やりかた)から
+  if (def.main) state.steps[failKey] = quiz.rhythmLabels ?? quiz.steps.map((item) => item.label); // リズムの名前は、1つめの問題(ほんとうの やりかた)から
   if (!correct) {
     state.fails[failKey] = true;
     state.enemyMax = Math.round(state.enemyMax * PENALTY);

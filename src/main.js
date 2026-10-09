@@ -127,6 +127,7 @@ function begin() {
     enemyPose: "normal",
     enemyUntil: 0,
     popups: [],
+    fx: [], // コンボ・パーフェクトの エフェクト
     pressed: {},
     attackAt: -9, // 主人公が、こうげきした時刻
     pendingHit: 0, // 敵に当たる時刻(こうげきが とどいたとき)
@@ -188,7 +189,7 @@ function shuffle(list) {
 
 // ならべる画面を出す。リズムは、この画面を終えてから、はじまる。
 // カードは、イラストの上に出る(quiz.js)。ドラッグして、上の「じゅんばん」の わくに ならべる。
-const ACTION_TIME = 1.0; // 1つの手順を やって見せる 秒数
+const ACTION_TIME = 0.5; // 1つの手順を やって見せる 秒数(みじかく)
 
 // 1つの手順の 問題を、じゅんに ならべる。1つめが「ほんとうの やりかた」(main)
 function quizzesFor(step, candidates, failKey) {
@@ -231,7 +232,7 @@ function startAction(rank, now) {
   const q = run.quiz;
   run.action = { key: q.failKey, rank, from: now, variant: q.variant ?? 0 };
   run.attackAt = now; // 前に出て、手を うごかす
-  setHero("attack", now, 0.7);
+  setHero("attack", now, 0.45);
 }
 
 // カードを、あいている わくに おく(キーボード・クリックでも)
@@ -273,7 +274,7 @@ function startDemo(now) {
   Q.fillLast(q);
   q.stage = "demo";
   q.demoIdx = 0;
-  q.demoAt = now + 0.35;
+  q.demoAt = now + 0.15;
   q.hover = -1;
 }
 
@@ -285,7 +286,7 @@ function updateQuiz(now) {
     if (q.demoIdx < q.n) {
       startAction(q.items[q.slots[q.demoIdx]].rank, now);
       q.demoIdx += 1;
-      q.demoAt = now + ACTION_TIME + 0.12;
+      q.demoAt = now + ACTION_TIME + 0.02;
     } else {
       judgeQuiz(now);
     }
@@ -294,6 +295,12 @@ function updateQuiz(now) {
     q.reveal = true; // 正しい じゅんばんに、カードが ならびかわる
     playSe("good");
   }
+}
+
+// やって見せている途中でも、キーや クリックで、すぐ 答えあわせへ
+function skipDemo(now = songTime()) {
+  const q = run?.quiz;
+  if (q && q.stage === "demo") judgeQuiz(now);
 }
 
 function judgeQuiz(now) {
@@ -305,7 +312,7 @@ function judgeQuiz(now) {
   q.verdictAt = now;
   q.stage = "verdict";
   q.wrong = !result.correct;
-  q.revealAt = now + 0.9;
+  q.revealAt = now + 0.55;
   run.action = null;
   if (!result.correct) {
     setHero("damage", now, 1.6); // 主人公も しっぱい
@@ -427,6 +434,94 @@ function defeatIfDone(now, bar, hit) {
   }
 }
 
+// --- コンボ・パーフェクトの エフェクト ---
+const COMBO_STEP = 5; // 5コンボごとに、大きな 演出
+const FX_STARS = ["#ffd23f", "#ff8a3d", "#fff6a8", "#ffffff"];
+
+function spawnHitFx(x, y, grade, now) {
+  const perfect = grade === "perfect";
+  run.fx.push({ kind: "ring", x, y, from: now, life: 0.45, color: perfect ? "#ffcf33" : "#7bd88f", size: perfect ? 70 : 46 });
+  const n = perfect ? 10 : 4;
+  for (let i = 0; i < n; i += 1) {
+    const a = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+    const speed = (perfect ? 170 : 90) * (0.6 + Math.random() * 0.6);
+    run.fx.push({ kind: "star", x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 40, from: now, life: perfect ? 0.75 : 0.5, size: perfect ? 9 + Math.random() * 6 : 5, color: FX_STARS[i % FX_STARS.length], spin: Math.random() * 6 });
+  }
+}
+
+function comboBurst(combo, now) {
+  run.fx.push({ kind: "combo", text: `${combo} COMBO!`, from: now, life: 1.0 });
+  run.fx.push({ kind: "glow", from: now, life: 0.55 });
+  for (let i = 0; i < 18; i += 1) {
+    const a = (i / 18) * Math.PI * 2;
+    run.fx.push({ kind: "star", x: 150, y: 250, vx: Math.cos(a) * 200, vy: Math.sin(a) * 160 - 30, from: now, life: 0.9, size: 8 + (i % 3) * 3, color: FX_STARS[i % FX_STARS.length], spin: i });
+  }
+  playSe("combo");
+}
+
+function drawFx(r, now) {
+  for (const f of r.fx) {
+    const age = now - f.from;
+    if (age < 0 || age > f.life) continue;
+    const k = age / f.life;
+    g.save();
+    if (f.kind === "ring") {
+      g.globalAlpha = 0.85 * (1 - k);
+      g.strokeStyle = f.color;
+      g.lineWidth = 6 * (1 - k) + 2;
+      g.beginPath();
+      g.arc(f.x, f.y, 14 + f.size * easeOut(k), 0, Math.PI * 2);
+      g.stroke();
+    } else if (f.kind === "star") {
+      const x = f.x + f.vx * age;
+      const y = f.y + f.vy * age + 220 * age * age;
+      g.globalAlpha = 1 - k * k;
+      g.translate(x, y);
+      g.rotate(f.spin + age * 6);
+      g.beginPath();
+      for (let i = 0; i < 8; i += 1) {
+        const rad = i % 2 === 0 ? f.size : f.size * 0.42;
+        const a = (i * Math.PI) / 4;
+        g.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+      }
+      g.closePath();
+      g.fillStyle = f.color;
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = INK;
+      g.stroke();
+    } else if (f.kind === "glow") {
+      // 画面の ふちが、ふわっと 金色に(やさしく。ちかちかは しない)
+      const grad = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.85);
+      grad.addColorStop(0, "rgba(255,210,63,0)");
+      grad.addColorStop(1, `rgba(255,190,40,${0.38 * (1 - k)})`);
+      g.fillStyle = grad;
+      g.fillRect(0, 0, W, H);
+    } else if (f.kind === "combo") {
+      const pop = k < 0.2 ? 0.7 + 0.5 * (k / 0.2) : 1.2 - 0.2 * Math.min(1, (k - 0.2) / 0.3);
+      g.globalAlpha = k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1;
+      g.translate(W / 2, 318);
+      g.rotate(-0.05);
+      g.scale(pop, pop);
+      g.font = "bold 64px sans-serif";
+      g.textAlign = "center";
+      g.lineWidth = 12;
+      g.lineJoin = "round";
+      g.strokeStyle = "#fff";
+      g.strokeText(f.text, 0, 0);
+      g.lineWidth = 5;
+      g.strokeStyle = INK;
+      g.strokeText(f.text, 0, 0);
+      const grad = g.createLinearGradient(0, -50, 0, 10);
+      grad.addColorStop(0, "#ffe066");
+      grad.addColorStop(1, "#ff8a3d");
+      g.fillStyle = grad;
+      g.fillText(f.text, 0, 0);
+    }
+    g.restore();
+  }
+}
+
 // 主人公のこうげき:前に出て、三日月をとばす。三日月が敵にとどいたとき(0.2秒後)に、敵がひるむ。
 function attack(now, grade) {
   run.attackAt = now;
@@ -460,6 +555,8 @@ function press(key, now) {
   target.hitAt = now;
   registerHit(run.state, grade);
   popup(grade === "perfect" ? "PERFECT!" : "GOOD", grade === "perfect" ? "#ff8a00" : "#2f9e44", now);
+  spawnHitFx(BOARD.cx - 111 + target.beat * 74, BOARD.cy + 6, grade, now);
+  if (run.state.combo > 0 && run.state.combo % COMBO_STEP === 0) comboBurst(run.state.combo, now);
   attack(now, grade);
   playSe(grade);
   defeatIfDone(now, target.bar, true);
@@ -529,6 +626,7 @@ function update(now) {
   }
   r.notes = r.notes.filter((note) => note.time > now - 2.4 && !(note.status === "cancel"));
   r.popups = r.popups.filter((p) => now - p.from < 0.8);
+  r.fx = r.fx.filter((f) => now - f.from < f.life);
   r.shots = r.shots.filter((p) => now - p.from < 0.25);
   r.bursts = r.bursts.filter((p) => now - p.from < 0.4);
   r.chunks = r.chunks.filter((p) => now - p.from < 0.5);
@@ -1279,6 +1377,7 @@ function draw(now) {
   }
 
   // 判定の文字
+  drawFx(r, now);
   for (const p of r.popups) {
     const t = (now - p.from) / 0.8;
     g.globalAlpha = 1 - t * t;
@@ -1627,7 +1726,7 @@ window.addEventListener("keydown", (event) => {
       if (!event.repeat) chooseAt(pick);
     } else if ((event.code === "Enter" || event.code === "Space" || event.code === "NumpadEnter") && !run.quiz.answered) {
       event.preventDefault();
-      if (!event.repeat) confirmQuiz();
+      if (!event.repeat) (run.quiz.stage === "demo" ? skipDemo() : confirmQuiz());
     } else if (event.code === "Backspace" && !run.quiz.answered) {
       event.preventDefault();
       if (!event.repeat) undoChoice();
@@ -1694,6 +1793,10 @@ function canvasPoint(event) {
 canvas.addEventListener("pointerdown", (event) => {
   if (!run || run.phase !== "quiz" || !run.quiz) return;
   unlock();
+  if (run.quiz.stage === "demo") {
+    skipDemo();
+    return;
+  }
   const [x, y] = canvasPoint(event);
   const ev = Q.pointerDown(run.quiz, x, y);
   if (ev) {

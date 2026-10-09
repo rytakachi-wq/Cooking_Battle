@@ -42,7 +42,15 @@ export function unlock() {
     ctx = new AC();
     master = ctx.createGain();
     master.gain.value = muted ? 0 : 0.5;
-    master.connect(ctx.destination);
+    // 音を 大きくしても われないよう、コンプレッサーを とおす
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -14;
+    comp.knee.value = 20;
+    comp.ratio.value = 5;
+    comp.attack.value = 0.003;
+    comp.release.value = 0.15;
+    master.connect(comp);
+    comp.connect(ctx.destination);
     noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const data = noise.getChannelData(0);
     for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
@@ -121,9 +129,10 @@ function scheduleBar(bar) {
     hiss(t, 0.05, { volume: 0.12, bus: songBus });
     hiss(t + BEAT / 2, 0.03, { volume: 0.035, bus: songBus });
     // 表拍(拍の頭)は 高い音、裏拍(半拍)は 低い音。矢印の「半拍」の ものさしと そろえる
-    tone(1568, t, 0.07, { type: "triangle", volume: 0.2, bus: songBus });
-    tone(587, t + BEAT / 2, 0.09, { type: "square", volume: 0.1, bus: songBus });
-    tone(294, t + BEAT / 2, 0.1, { type: "triangle", volume: 0.3, bus: songBus });
+    tone(1568, t, 0.09, { type: "triangle", volume: 0.55, bus: songBus });
+    tone(1568, t, 0.04, { type: "square", volume: 0.16, bus: songBus });
+    tone(587, t + BEAT / 2, 0.11, { type: "square", volume: 0.26, bus: songBus });
+    tone(294, t + BEAT / 2, 0.12, { type: "triangle", volume: 0.7, bus: songBus });
   }
   // メロディは、1拍ごと(ゆっくり)。拍をじゃましない
   for (let h = 0; h < 4; h += 1) {
@@ -248,6 +257,8 @@ export function playSe(name) {
     [523, 659, 784, 1047].forEach((f, i) => tone(f, t + i * 0.13, 0.3, { type: "square", volume: 0.2 }));
   } else if (name === "lose") {
     [392, 330, 262, 196].forEach((f, i) => tone(f, t + i * 0.2, 0.35, { type: "triangle", volume: 0.3 }));
+  } else if (name === "combo") {
+    [784, 988, 1175, 1568].forEach((f, i) => tone(f, t + i * 0.06, 0.18, { type: "triangle", volume: 0.4 }));
   } else if (name === "button") {
     tone(660, t, 0.08, { type: "square", volume: 0.15 });
   }
@@ -262,7 +273,7 @@ export function cueAtSongTime(t, key, offbeat = false) {
   // 表拍は 高く、裏拍(半拍)は 1オクターブ 低く
   const f = (CUE_PITCH[key] ?? 440) * (offbeat ? 0.5 : 2);
   // 裏拍(半拍)の音は、低くても きこえるように、大きく・音色を はっきり
-  tone(f, when, offbeat ? 0.24 : 0.2, { type: offbeat ? "square" : "triangle", volume: offbeat ? 0.26 : 0.38 });
-  tone(f * 2, when, 0.08, { type: "sine", volume: offbeat ? 0.3 : 0.14 });
-  if (offbeat) tone(f * 4, when, 0.04, { type: "triangle", volume: 0.2 }); // 頭の クリック
+  tone(f, when, offbeat ? 0.24 : 0.2, { type: offbeat ? "square" : "triangle", volume: offbeat ? 0.55 : 0.75 });
+  tone(f * 2, when, 0.08, { type: "sine", volume: offbeat ? 0.55 : 0.3 });
+  if (offbeat) tone(f * 4, when, 0.04, { type: "triangle", volume: 0.4 }); // 頭の クリック
 }
