@@ -18,7 +18,7 @@ import {
   registerHit,
   registerMiss,
 } from "./game.js";
-import { activeSources, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
+import { activeSources, alive, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import { ENEMY_FX, STATION, drawFailStamp, drawStation } from "./station.js";
 import { loadStats, recordPlay } from "./storage.js";
@@ -882,6 +882,7 @@ function draw(now) {
 
 function tick() {
   if (!run) return;
+  alive();
   const now = songTime();
   if (update(now)) {
     draw(now);

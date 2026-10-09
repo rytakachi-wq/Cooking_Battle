@@ -121,8 +121,18 @@ function scheduleBar(bar) {
   }
 }
 
+// ゲームの画面が動いているあいだ、毎フレーム呼ぶ。3秒よばれなかったら、BGMだけが鳴りつづけないよう、自分で止める。
+let lastAlive = 0;
+export function alive() {
+  lastAlive = performance.now();
+}
+
 function pump() {
   if (!playing) return;
+  if (performance.now() - lastAlive > 3000) {
+    stopSong();
+    return;
+  }
   while (startAt + nextBarToSchedule * BAR < ctx.currentTime + 1.5) {
     scheduleBar(nextBarToSchedule);
     nextBarToSchedule += 1;
@@ -135,6 +145,7 @@ export function startSong() {
   stopSong();
   songBus = ctx.createGain();
   songBus.connect(master);
+  alive();
   startAt = ctx.currentTime + 0.15;
   haveDrift = false;
   nextBarToSchedule = 0;
