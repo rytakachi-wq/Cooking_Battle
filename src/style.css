@@ -106,8 +106,8 @@ html, body {
 }
 
 #stage {
-  width: 100%;
-  max-width: 960px;
+  /* 下に「えらぶ」画面を出す場所をあけて、ぜんぶが画面に入るようにする */
+  width: min(100%, 960px, calc((100vh - 300px) * 16 / 9));
   height: auto;
   aspect-ratio: 16 / 9;
   border: 4px solid var(--ink);
@@ -143,4 +143,87 @@ html, body {
   font-size: 24px;
   font-weight: bold;
   color: var(--accent);
+}
+
+.quiz {
+  width: min(100%, 960px);
+  padding: 14px 18px;
+  background: #fff4d8;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  text-align: left;
+}
+
+.quiz p { margin: 0; }
+.quiz-step { font-size: 14px; font-weight: bold; color: var(--accent); }
+.quiz-q { font-size: 20px; font-weight: bold; margin: 2px 0 8px; }
+
+.quiz-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  text-align: left;
+  color: var(--ink);
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.choice:hover:not(:disabled) { background: #ffe9b8; }
+.choice:focus-visible { outline: 4px solid #2f7bff; outline-offset: 2px; }
+.choice:disabled { cursor: default; opacity: 0.55; }
+.choice.ok { opacity: 1; background: #d8f5d0; }
+.choice.ng { opacity: 1; background: #ffd9d4; }
+
+.choice .num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: #fff;
+  background: var(--ink);
+  border-radius: 50%;
+}
+
+.verdict { font-size: 22px; font-weight: bold; }
+.verdict.ok { color: #2f9e44; }
+.verdict.ng { color: var(--accent); }
+.quiz-fail { font-weight: bold; }
+.quiz-reason { margin: 4px 0 10px !important; line-height: 1.6; }
+
+.review {
+  width: min(100%, 640px);
+  padding: 8px 18px 12px;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  text-align: left;
+}
+
+.review h3 { margin: 10px 0 4px; font-size: 16px; color: var(--accent); }
+.review ul { margin: 0; padding-left: 0; list-style: none; line-height: 1.6; font-size: 14px; }
+.review li { margin-bottom: 6px; }
+.review li strong { display: block; }
+.review li.ng strong { color: var(--accent); }
+.review li.ok strong { color: #2f9e44; }
+
+@media (max-width: 700px) {
+  .quiz-choices { grid-template-columns: 1fr; }
 }

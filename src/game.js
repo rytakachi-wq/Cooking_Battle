@@ -11,6 +11,7 @@ export const WINDOW = { perfect: 0.07, good: 0.14 }; // 押すタイミングの
 export const PLAYER_HP = 100;
 export const MISS_DAMAGE = 8; // ミスしたときに受けるダメージ
 export const HIT_DAMAGE = { perfect: 12, good: 8 }; // 敵に与えるダメージ
+export const PENALTY = 1.15; // 手順えらびを まちがえたとき、次の敵の体力が ふえる倍率
 export const HIT_SCORE = { perfect: 100, good: 60 };
 
 // 矢印キーの対応。L=←, U=↑, R=→, D=↓
@@ -24,6 +25,8 @@ export function createState(recipe = DEFAULT_RECIPE) {
   return {
     recipe,
     tips: [], // 出てきた豆知識(結果画面で見返す)
+    review: [], // 手順えらびの記録(結果画面で見返す)
+    fails: {}, // 失敗した手順(敵のid → true)。調理台の絵に出る
     score: 0,
     combo: 0,
     maxCombo: 0,
@@ -33,6 +36,7 @@ export function createState(recipe = DEFAULT_RECIPE) {
     playerHp: PLAYER_HP,
     enemyIndex: 0,
     enemyHp: recipe.enemies[0].hp,
+    enemyMax: recipe.enemies[0].hp,
   };
 }
 
@@ -82,6 +86,7 @@ export function nextEnemy(state) {
   if (state.enemyIndex >= state.recipe.enemies.length - 1) return false;
   state.enemyIndex += 1;
   state.enemyHp = state.recipe.enemies[state.enemyIndex].hp;
+  state.enemyMax = state.enemyHp;
   return true;
 }
 
@@ -100,4 +105,25 @@ export function rank(state) {
 
 export function enemyOf(state) {
   return state.recipe.enemies[state.enemyIndex];
+}
+
+// 手順えらびに答える。まちがえたら、いまの敵(これから戦う敵)が、少し強くなる。
+// choices は、画面に出した順の並び。index は、えらんだ番号。
+export function answerQuiz(state, { step, quiz }, choices, index, failKey) {
+  const picked = choices[index];
+  const correct = picked.correct === true;
+  if (!correct) {
+    state.fails[failKey] = true;
+    state.enemyMax = Math.round(state.enemyMax * PENALTY);
+    state.enemyHp = state.enemyMax;
+  }
+  state.review.push({
+    step,
+    question: quiz.question,
+    picked: picked.text,
+    correct,
+    fail: correct ? "" : picked.fail,
+    reason: quiz.reason,
+  });
+  return { correct, fail: picked.fail ?? "", reason: quiz.reason };
 }

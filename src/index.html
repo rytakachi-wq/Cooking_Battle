@@ -36,6 +36,17 @@
     <!-- 遊ぶ画面 -->
     <section id="screen-play" class="screen" aria-label="プレイ" hidden>
       <canvas id="stage" width="960" height="540"></canvas>
+      <section id="quiz" class="quiz" aria-live="polite" hidden>
+        <p id="quiz-step" class="quiz-step"></p>
+        <p id="quiz-q" class="quiz-q"></p>
+        <ol id="quiz-choices" class="quiz-choices"></ol>
+        <div id="quiz-feedback" hidden>
+          <p id="quiz-verdict" class="verdict"></p>
+          <p id="quiz-fail" class="quiz-fail"></p>
+          <p id="quiz-reason" class="quiz-reason"></p>
+          <button id="btn-quiz-next" class="btn btn-main btn-small" type="button">つぎへ (Enter)</button>
+        </div>
+      </section>
       <div class="menu">
         <button id="btn-mute-play" class="btn btn-small" type="button">おと：あり (M)</button>
         <button id="btn-quit" class="btn btn-small" type="button">やめる (Esc)</button>
@@ -53,9 +64,16 @@
         <div><dt>グッド</dt><dd id="r-good"></dd></div>
         <div><dt>ミス</dt><dd id="r-miss"></dd></div>
         <div><dt>さいだいコンボ</dt><dd id="r-combo"></dd></div>
+        <div><dt>手順えらび</dt><dd id="r-quiz"></dd></div>
         <div><dt>さいこうとくてん</dt><dd id="r-best"></dd></div>
       </dl>
       <p id="r-record" class="record" hidden>しんきろく！</p>
+      <section class="review" aria-label="ふりかえり">
+        <h3>ふりかえり</h3>
+        <ul id="r-review"></ul>
+        <h3>ワンポイント</h3>
+        <ul id="r-tips"></ul>
+      </section>
       <div class="menu">
         <button id="btn-again" class="btn btn-main" type="button">もういちど</button>
         <button id="btn-cover" class="btn btn-sub" type="button">ひょうしへ</button>

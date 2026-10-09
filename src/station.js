@@ -37,7 +37,7 @@ function ellipse(g, x, y, rx, ry, fill, stroke = INK, width = 3) {
 }
 
 // ボウル(① ② ③)。p は、いまの敵をどこまで倒したか(0〜1)。
-function bowl(g, stage, p, t) {
+function bowl(g, stage, p, t, fails) {
   const cx = STATION.x;
   const top = STATION.y - 92;
   // 本体
@@ -89,7 +89,7 @@ function bowl(g, stage, p, t) {
   }
   if (mixP > 0) {
     // まざって、生地になる
-    ellipse(g, cx, top + 2, 80, 19, mix("#f4f8ff", "#f6dca0", Math.min(1, mixP * 1.4)), null);
+    ellipse(g, cx, top + 2, 80, 19, mix("#f4f8ff", fails.mix ? "#c99a4a" : "#f6dca0", Math.min(1, mixP * 1.4)), null);
     g.strokeStyle = "rgba(190,140,60,0.6)";
     g.lineWidth = 3;
     for (let i = 0; i < 3; i += 1) {
@@ -99,12 +99,40 @@ function bowl(g, stage, p, t) {
       g.stroke();
     }
   }
+  if (fails.egg && eggP > 0.2) {
+    // からが入っちゃった
+    g.fillStyle = "#f3e6cf";
+    g.strokeStyle = "#8a6a43";
+    g.lineWidth = 2;
+    [[-34, -4, 1], [12, 6, -1], [30, -6, 1]].forEach(([dx, dy, d]) => {
+      g.beginPath();
+      g.moveTo(cx + dx, top + dy);
+      g.lineTo(cx + dx + 14 * d, top + dy + 3);
+      g.lineTo(cx + dx + 5 * d, top + dy - 7);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    });
+  }
+  if (fails.mix && mixP > 0.3) {
+    // ダマ
+    g.fillStyle = "rgba(255,240,200,0.9)";
+    [[-40, 2], [-8, 8], [28, -2], [46, 6], [10, -6]].forEach(([dx, dy]) => {
+      g.beginPath();
+      g.arc(cx + dx, top + 2 + dy, 6, 0, Math.PI * 2);
+      g.fill();
+    });
+  }
   g.restore();
   g.lineWidth = 3;
   g.strokeStyle = INK;
   g.beginPath();
   g.ellipse(cx, top, 92, 24, 0, 0, Math.PI * 2);
   g.stroke();
+  if (fails.milk && milkP > 0.3) {
+    // こぼれた牛乳
+    ellipse(g, cx + 20, STATION.y + 2, 120, 9, "rgba(244,248,255,0.9)", "rgba(120,170,230,0.6)", 2);
+  }
 
   // 泡立て器(③のとき、ぐるぐる)
   if (stage === 2) {
@@ -129,7 +157,7 @@ function bowl(g, stage, p, t) {
 }
 
 // フライパン(④)
-function pan(g, p, t) {
+function pan(g, p, t, fails) {
   const cx = STATION.x;
   const cy = STATION.y - 42;
   g.fillStyle = INK; // 取っ手
@@ -139,7 +167,7 @@ function pan(g, p, t) {
   ellipse(g, cx, cy + 8, 112, 32, "#2b2b30");
   ellipse(g, cx, cy, 108, 30, "#4a4a52");
   // 生地:しろっぽい → きつね色
-  ellipse(g, cx, cy, 82, 22, mix("#f7e7b6", "#d8933a", p), "#8a5a1c", 2);
+  ellipse(g, cx, cy, 82, 22, mix("#f7e7b6", fails.butter ? "#3a2010" : "#d8933a", p), "#8a5a1c", 2);
   // バター:だんだんとける
   const bs = 1 - p;
   if (bs > 0.05) {
@@ -157,7 +185,7 @@ function pan(g, p, t) {
   // あわと湯気
   for (let i = 0; i < 5; i += 1) {
     const ph = (t * 0.6 + i * 0.2) % 1;
-    g.fillStyle = `rgba(255,255,255,${0.7 * (1 - ph) * Math.min(1, p * 3)})`;
+    g.fillStyle = fails.butter ? `rgba(70,70,70,${0.6 * (1 - ph) * Math.min(1, p * 3)})` : `rgba(255,255,255,${0.7 * (1 - ph) * Math.min(1, p * 3)})`;
     g.beginPath();
     g.arc(cx - 50 + i * 25, cy - 20 - ph * 60, 6 + ph * 6, 0, Math.PI * 2);
     g.fill();
@@ -218,11 +246,11 @@ function plate(g, p, t) {
 }
 
 // 調理台をえがく。stage は敵の番号(0〜4)、p は、いまの敵をどこまで倒したか(0〜1)。
-export function drawStation(g, stage, p, t) {
+export function drawStation(g, stage, p, t, fails = {}) {
   g.save();
   g.lineJoin = "round";
-  if (stage <= 2) bowl(g, stage, p, t);
-  else if (stage === 3) pan(g, p, t);
+  if (stage <= 2) bowl(g, stage, p, t, fails);
+  else if (stage === 3) pan(g, p, t, fails);
   else plate(g, p, t);
   g.restore();
 }

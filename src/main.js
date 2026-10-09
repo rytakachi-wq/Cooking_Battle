@@ -2,6 +2,7 @@
 
 import {
   ARROW_KEYS,
+  answerQuiz,
   BAR,
   BEAT,
   EXTRA_KEYS,
@@ -18,7 +19,7 @@ import {
   registerMiss,
 } from "./game.js";
 import { activeSources, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
-import { RECIPES } from "./recipes.js";
+import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import { ENEMY_FX, STATION, drawStation } from "./station.js";
 import { loadStats, recordPlay } from "./storage.js";
 
@@ -92,9 +93,9 @@ function begin() {
   run = {
     state: createState(),
     notes: [],
-    nextBar: 1, // 最初の小節(2秒め)から音符を出す。その前はカウントダウン
+    nextBar: 0,
     lastPattern: -1,
-    phase: "fight", // fight / down / end
+    phase: "quiz", // quiz(えらぶ) / fight(リズム) / down(倒したあと) / end
     phaseUntil: 0,
     result: null, // "win" か "lose"
     heroPose: "normal",
@@ -111,14 +112,17 @@ function begin() {
     bursts: [], // 当たったときの火花
     shown: 0, // 調理台に見せている、料理の進みぐあい(0〜1。なめらかに動かす)
     lastFrame: 0,
-    banner: { text: enemyOf(createState()).step, from: BAR, until: BAR + 3 },
+    banner: { text: "", from: 0, until: 0 },
+    quiz: null,
   };
   show("play");
+  openQuiz({ step: DEFAULT_RECIPE.prep.step, quiz: DEFAULT_RECIPE.prep.quiz }, "prep");
   cancelAnimationFrame(frame);
   frame = requestAnimationFrame(tick);
 }
 
 function quitToCover() {
+  $("quiz").hidden = true;
   cancelAnimationFrame(frame);
   run = null;
   stopSong();
@@ -141,6 +145,105 @@ function setEnemy(pose, now, length) {
 
 function clearPending() {
   for (const note of run.notes) if (note.status === "pending") note.status = "cancel";
+}
+
+// --- 手順えらび(どうやって調理する？) ---
+function shuffle(list) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// えらぶ画面を出す。矢印のリズムは、この画面を終えてから、はじまる。
+function openQuiz(def, failKey, now = songTime()) {
+  clearPending();
+  run.notes = [];
+  run.phase = "quiz";
+  const choices = shuffle(def.quiz.choices);
+  run.quiz = { def, choices, failKey, answered: false };
+  run.banner = { text: def.step, from: now, until: now + 9999 };
+  $("quiz-step").textContent = def.step;
+  $("quiz-q").textContent = def.quiz.question;
+  const list = $("quiz-choices");
+  list.replaceChildren();
+  choices.forEach((choice, i) => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "choice";
+    const num = document.createElement("span");
+    num.className = "num";
+    num.textContent = String(i + 1);
+    button.append(num, choice.text);
+    button.addEventListener("click", () => choose(i));
+    li.append(button);
+    list.append(li);
+  });
+  $("quiz-choices").hidden = false;
+  $("quiz-feedback").hidden = true;
+  $("quiz").hidden = false;
+}
+
+function choose(i) {
+  const q = run?.quiz;
+  if (!q || q.answered || !q.choices[i]) return;
+  q.answered = true;
+  const result = answerQuiz(run.state, q.def, q.choices, i, q.failKey);
+  [...$("quiz-choices").querySelectorAll("button")].forEach((button, index) => {
+    button.disabled = true;
+    if (q.choices[index].correct) button.classList.add("ok");
+    else if (index === i) button.classList.add("ng");
+  });
+  $("quiz-verdict").textContent = result.correct ? "◎ せいかい！" : "× しっぱい…";
+  $("quiz-verdict").className = result.correct ? "verdict ok" : "verdict ng";
+  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　つぎの敵が、少し強くなったよ。`;
+  $("quiz-reason").textContent = result.reason;
+  $("quiz-feedback").hidden = false;
+  playSe(result.correct ? "perfect" : "miss");
+}
+
+// 答えを見たあと、リズムの戦いへ。
+function endQuiz(now = songTime()) {
+  const q = run?.quiz;
+  if (!q || !q.answered) return;
+  run.quiz = null;
+  $("quiz").hidden = true;
+  if (q.failKey === "prep") {
+    // 準備のあとは、はじめの敵(卵)の「えらぶ」へ
+    const first = enemyOf(run.state);
+    openQuiz({ step: first.step, quiz: first.quiz }, first.id, now);
+    return;
+  }
+  run.phase = "fight";
+  run.lastPattern = -1;
+  run.nextBar = Math.ceil((now + 2) / BAR);
+  run.banner = { text: enemyOf(run.state).step, from: now, until: now + 2.5 };
+}
+
+// 結果画面の「ふりかえり」
+function showReview(s) {
+  const list = $("r-review");
+  list.replaceChildren();
+  for (const item of s.review) {
+    const li = document.createElement("li");
+    li.className = item.correct ? "ok" : "ng";
+    const head = document.createElement("strong");
+    head.textContent = `${item.correct ? "◎" : "×"} ${item.step}`;
+    const body = document.createElement("span");
+    body.textContent = item.correct ? item.reason : `${item.picked} → ${item.fail} ${item.reason}`;
+    li.append(head, body);
+    list.append(li);
+  }
+  const tips = $("r-tips");
+  tips.replaceChildren();
+  for (const tip of s.tips) {
+    const li = document.createElement("li");
+    li.textContent = `${tip.name}：${tip.text}`;
+    tips.append(li);
+  }
 }
 
 // 倒した敵の豆知識を出す。矢印をおしている最中には出さない(敵がたおれてから、つぎの敵まで)。
@@ -233,12 +336,11 @@ function update(now) {
     }
   } else if (r.phase === "down" && now >= r.phaseUntil) {
     nextEnemy(r.state);
-    r.phase = "fight";
     r.enemyPose = "normal";
     r.enemyUntil = 0;
-    r.lastPattern = -1;
-    r.nextBar = Math.ceil((now + 2) / BAR);
-    r.banner = { text: enemyOf(r.state).step, from: now, until: now + 2.5 };
+    r.tip = null;
+    const enemy = enemyOf(r.state);
+    openQuiz({ step: enemy.step, quiz: enemy.quiz }, enemy.id, now);
   } else if (r.phase === "end" && now >= r.phaseUntil) {
     showResult();
     return false;
@@ -275,6 +377,7 @@ function update(now) {
 }
 
 function showResult() {
+  $("quiz").hidden = true;
   const r = run;
   const won = r.result === "win";
   const s = r.state;
@@ -291,8 +394,10 @@ function showResult() {
   $("r-good").textContent = s.good;
   $("r-miss").textContent = s.miss;
   $("r-combo").textContent = s.maxCombo;
+  $("r-quiz").textContent = `${s.review.filter((item) => item.correct).length} / ${s.review.length}`;
   $("r-best").textContent = loadStats().bestScore;
   $("r-record").hidden = !isRecord;
+  showReview(s);
   show("result");
 }
 
@@ -595,9 +700,9 @@ function draw(now) {
     r.stageDrawn = s.enemyIndex;
     r.shown = 0;
   }
-  const target = r.phase === "down" || r.enemyPose === "down" || r.downAt ? 1 : 1 - s.enemyHp / enemy.hp;
+  const target = r.phase === "down" || r.enemyPose === "down" || r.downAt ? 1 : 1 - s.enemyHp / s.enemyMax;
   r.shown += (target - r.shown) * Math.min(1, dt * 7);
-  drawStation(g, s.enemyIndex, r.shown, now);
+  drawStation(g, s.enemyIndex, r.shown, now, s.fails);
 
   // 主人公:こうげきで前に出る
   const lunge = lungeAmount(now, r);
@@ -614,7 +719,7 @@ function draw(now) {
   // 敵:ひるむと白くひかり、うしろへ下がる
   const since = now - r.hitAt;
   const flinch = since >= 0 && since < 0.18 ? 1 - since / 0.18 : 0;
-  const weak = r.enemyPose === "normal" && s.enemyHp / enemy.hp < 0.5 ? "damage" : r.enemyPose;
+  const weak = r.enemyPose === "normal" && s.enemyHp / s.enemyMax < 0.5 ? "damage" : r.enemyPose;
   const ename = `${enemy.id}_${weak}`;
   const edy = r.enemyPose === "normal" ? bounce : 0;
   if (flinch > 0) drawFlash(ename, 770, 398 + edy, SCALE[enemy.id], flinch * 0.5, flinch * 8);
@@ -626,7 +731,7 @@ function draw(now) {
 
   // 体力など
   bar(24, 36, 300, 20, s.playerHp / PLAYER_HP, "#4ecb71", "みならい りょうりにん");
-  bar(W - 324, 36, 300, 20, s.enemyHp / enemy.hp, "#ff6b6b", enemy.name);
+  bar(W - 324, 36, 300, 20, s.enemyHp / s.enemyMax, "#ff6b6b", enemy.name);
   outlined(`${s.score}`, W / 2, 44, 34, "#4a2c17");
   if (s.combo >= 2) outlined(`${s.combo} COMBO`, W / 2, 80, 22, "#e8472f");
   g.font = "bold 16px sans-serif";
@@ -665,13 +770,7 @@ function draw(now) {
     g.globalAlpha = 1;
   }
 
-  // カウントダウンと手順の見出し
-  if (now < BAR) {
-    const n = 4 - Math.floor(now / BEAT);
-    if (n >= 1 && n <= 3) outlined(String(n), W / 2, 200, 100, "#e8472f");
-    else if (now >= 0) outlined("GO!", W / 2, 200, 90, "#e8472f");
-    outlined("矢印キーを リズムに合わせて おそう！", W / 2, 125, 28, "#4a2c17");
-  }
+  // 手順の見出し
   if (now >= r.banner.from && now < r.banner.until) {
     const t = now - r.banner.from;
     g.globalAlpha = Math.min(1, (r.banner.until - now) * 2, t * 4);
@@ -704,6 +803,17 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   if (!run) return;
+  if (run.phase === "quiz" && run.quiz) {
+    const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[event.code];
+    if (pick !== undefined) {
+      event.preventDefault();
+      if (!event.repeat) choose(pick);
+    } else if ((event.code === "Enter" || event.code === "Space" || event.code === "NumpadEnter") && run.quiz.answered) {
+      event.preventDefault();
+      if (!event.repeat) endQuiz();
+    }
+    return;
+  }
   const key = ARROW_KEYS[event.code];
   if (key) {
     event.preventDefault();
@@ -749,6 +859,7 @@ $("btn-mute-play").addEventListener("click", (event) => {
   event.currentTarget.blur(); // フォーカスが残ると、Enterなどで また押されてしまう
 });
 $("btn-quit").addEventListener("click", quitToCover);
+$("btn-quiz-next").addEventListener("click", () => endQuiz());
 
 // 画面がかくれたら、ゲームをやめて、BGMも止める(のこらないように)
 document.addEventListener("visibilitychange", () => {
@@ -758,7 +869,7 @@ window.addEventListener("pagehide", stopSong);
 
 // 動作確認用。アドレスの最後に ?debug をつけたときだけ、外から中をのぞける。
 if (location.search.includes("debug")) {
-  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources };
+  window.__game = { getRun: () => run, songTime, update, press, draw, begin, activeSources, choose, endQuiz };
 }
 
 loadImages().then(() => {
