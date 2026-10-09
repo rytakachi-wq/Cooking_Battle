@@ -1,7 +1,6 @@
 // 画面の切りかえ・入力・描画。ルールは game.js、音は audio.js、記録は storage.js。
 
 import {
-  ARROW_GLYPH,
   ARROW_KEYS,
   BAR,
   BEAT,
@@ -24,11 +23,10 @@ import { loadStats, recordPlay } from "./storage.js";
 
 const W = 960;
 const H = 540;
-const HIT_X = 300; // 矢印をおす位置(主人公と敵のあいだ。キャラクターを見たまま、矢印も目に入る)
-const SPEED = 420; // 矢印が流れる速さ(ピクセル/秒)。ゆっくりめにして、目の動きを小さくする
-const FADE_IN = 90; // 矢印が出てくるとき、右はしでふわっと現れるはば(ピクセル)
-const LUNGE = 110; // 主人公が、こうげきで前に出る大きさ
-const LANE_Y = 222; // 矢印が流れる高さ(キャラクターの頭のあたり)
+const LUNGE = 60; // 主人公が、こうげきで前に出る大きさ(大きく動くと目が疲れるので、小さめ)
+const BOARD = { cx: 470, cy: 193, gap: 76, r: 30 }; // 注文カードの場所(主人公と敵のあいだ)
+const APPROACH = 0.8; // 輪がちぢみはじめてから、おすまでの秒数
+const RING = 30; // 輪のいちばん大きいときの、お皿からの広がり
 const LOOKAHEAD = 2.6; // 何秒さきまで、矢印を作っておくか
 
 const $ = (id) => document.getElementById(id);
@@ -125,7 +123,7 @@ function quitToCover() {
   showCover();
 }
 
-function popup(text, color, now, x = HIT_X, y = LANE_Y - 52) {
+function popup(text, color, now, x = BOARD.cx, y = BOARD.cy + 68) {
   run.popups.push({ text, color, x, y, from: now });
 }
 
@@ -257,7 +255,7 @@ function update(now) {
     r.enemyPose = "normal";
     r.enemyUntil = 0;
   }
-  r.notes = r.notes.filter((note) => note.time > now - 1 && !(note.status === "cancel"));
+  r.notes = r.notes.filter((note) => note.time > now - 2.4 && !(note.status === "cancel"));
   r.popups = r.popups.filter((p) => now - p.from < 0.8);
   r.shots = r.shots.filter((p) => now - p.from < 0.25);
   r.bursts = r.bursts.filter((p) => now - p.from < 0.4);
@@ -288,7 +286,6 @@ function showResult() {
 }
 
 // --- 描画 ---
-const KEY_COLOR = { L: "#ff6b6b", U: "#4ecb71", R: "#4da3ff", D: "#ffc93c" };
 
 function drawSprite(name, cx, bottom, scale, { flip = false, dy = 0, alpha = 1 } = {}) {
   const img = images[name];
@@ -338,24 +335,126 @@ function roundRect(x, y, w, h, r) {
   g.closePath();
 }
 
-function drawArrowBox(key, x, y, size, alpha = 1) {
+const INK = "#4a2c17";
+const DIR_COLOR = { L: "#ff8a65", U: "#7bc47f", R: "#5aa9f0", D: "#ffcb3d" };
+
+// 矢印のかたち。右むきをもとに、回して使う。s は大きさ(半分)。
+function arrowShape(key, x, y, s) {
+  const turn = { R: 0, D: Math.PI / 2, L: Math.PI, U: -Math.PI / 2 }[key];
+  const c = Math.cos(turn);
+  const d = Math.sin(turn);
+  const points = [
+    [-0.8, -0.28],
+    [0.1, -0.28],
+    [0.1, -0.72],
+    [0.88, 0],
+    [0.1, 0.72],
+    [0.1, 0.28],
+    [-0.8, 0.28],
+  ];
+  g.beginPath();
+  points.forEach(([px, py], i) => {
+    const sx = x + (px * c - py * d) * s;
+    const sy = y + (px * d + py * c) * s;
+    if (i === 0) g.moveTo(sx, sy);
+    else g.lineTo(sx, sy);
+  });
+  g.closePath();
+}
+
+// 注文のお皿。丸いお皿の上に、矢印がのっている。
+function drawPlate(key, x, y, r, state = "pending", alpha = 1) {
   g.save();
   g.globalAlpha = alpha;
-  g.fillStyle = KEY_COLOR[key];
-  g.strokeStyle = "#4a2c17";
-  g.lineWidth = 4;
-  roundRect(x - size / 2, y - size / 2, size, size, 14);
+  g.lineJoin = "round";
+  g.fillStyle = state === "hit" ? "#fff0a8" : "#fffaf0";
+  g.strokeStyle = INK;
+  g.lineWidth = 3;
+  g.beginPath();
+  g.arc(x, y, r, 0, Math.PI * 2);
   g.fill();
   g.stroke();
-  g.fillStyle = "#fff";
-  g.font = `bold ${size * 0.75}px sans-serif`;
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  g.lineWidth = 5;
-  g.strokeText(ARROW_GLYPH[key], x, y + 2);
-  g.fillText(ARROW_GLYPH[key], x, y + 2);
+  g.strokeStyle = state === "hit" ? "#f2c94c" : "#eadfc8";
+  g.lineWidth = 3;
+  g.beginPath();
+  g.arc(x, y, r * 0.78, 0, Math.PI * 2);
+  g.stroke();
+  arrowShape(key, x, y, r * 0.66);
+  g.fillStyle = state === "miss" ? "#bdb5a8" : DIR_COLOR[key];
+  g.fill();
+  g.strokeStyle = state === "miss" ? "#9a9286" : INK;
+  g.lineWidth = 2.5;
+  g.stroke();
   g.restore();
-  g.textBaseline = "alphabetic";
+}
+
+// 画面のまんなか(主人公と敵のあいだ)の「注文カード」。矢印は動かず、輪がちぢんで、おす合図になる。
+// 動くものが少ないので、目で追いつづけなくてよい。キャラクターには、かぶらない。
+function drawBoard(r, now) {
+  const { cx, cy, gap, r: pr } = BOARD;
+  // カード
+  g.save();
+  g.fillStyle = "rgba(74,44,23,0.18)";
+  roundRect(cx - 168, cy - 36, 336, 80, 26);
+  g.fill();
+  g.fillStyle = "#fff4d8";
+  g.strokeStyle = INK;
+  g.lineWidth = 3;
+  roundRect(cx - 168, cy - 42, 336, 80, 26);
+  g.fill();
+  g.stroke();
+  g.fillStyle = "rgba(74,44,23,0.55)";
+  g.font = "bold 12px sans-serif";
+  g.textAlign = "left";
+  g.fillText("ちゅうもん", cx - 150, cy - 24);
+  g.restore();
+
+  // いま見せる並び = いちばん近い音符がある小節
+  const live = r.notes.filter((n) => n.status !== "cancel" && n.time >= now - 0.35);
+  if (!live.length) return;
+  const bar = Math.min(...live.map((n) => n.bar));
+  const group = r.notes.filter((n) => n.bar === bar && n.status !== "cancel").sort((a, b) => a.slot - b.slot);
+  group.forEach((note, i) => {
+    const x = cx + (i - (group.length - 1) / 2) * gap;
+    const y = cy - 2;
+    const dt = note.time - now;
+    if (note.status === "hit") {
+      const t = Math.max(0, now - note.hitAt);
+      drawPlate(note.key, x, y, pr, "hit");
+      if (t < 0.25) {
+        g.save();
+        g.globalAlpha = 0.7 * (1 - t / 0.25);
+        g.strokeStyle = "#ffcf33";
+        g.lineWidth = 5;
+        g.beginPath();
+        g.arc(x, y, pr + t * 90, 0, Math.PI * 2);
+        g.stroke();
+        g.restore();
+      }
+      return;
+    }
+    if (note.status === "miss") {
+      drawPlate(note.key, x, y, pr, "miss", 0.7);
+      return;
+    }
+    drawPlate(note.key, x, y, pr);
+    // ちぢむ輪:輪が お皿に重なったときが、おすタイミング
+    if (dt <= APPROACH && dt > -0.16) {
+      const p = Math.max(0, Math.min(1, dt / APPROACH));
+      g.save();
+      g.globalAlpha = 0.3 + 0.6 * (1 - p);
+      g.strokeStyle = DIR_COLOR[note.key];
+      g.lineWidth = dt <= 0.07 ? 7 : 5;
+      g.beginPath();
+      g.arc(x, y, pr + 5 + RING * p, 0, Math.PI * 2);
+      g.stroke();
+      g.strokeStyle = INK;
+      g.globalAlpha = 0.5 * (1 - p);
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.restore();
+    }
+  });
 }
 
 const tmp = document.createElement("canvas");
@@ -448,14 +547,26 @@ function drawChunk(c, now) {
   g.stroke();
 }
 
+// 画面の大きさに合わせて、絵のこまかさを決める(ぼやけた文字や矢印は、目が疲れる)
+function fitCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.round(canvas.clientWidth * dpr);
+  if (width > 0 && canvas.width !== width) {
+    canvas.width = width;
+    canvas.height = Math.round((width * H) / W);
+  }
+  g.setTransform(canvas.width / W, 0, 0, canvas.width / W, 0, 0);
+  g.imageSmoothingQuality = "high";
+}
+
 function draw(now) {
+  fitCanvas();
   const r = run;
   const s = r.state;
   const enemy = ENEMIES[s.enemyIndex];
   const dt = r.lastFrame ? Math.min(0.1, now - r.lastFrame) : 0;
   r.lastFrame = now;
-  const beatPhase = (((now % BEAT) + BEAT) % BEAT) / BEAT;
-  const bounce = -Math.abs(Math.sin(beatPhase * Math.PI)) * 3; // 目が疲れないよう、ゆれは小さく
+  const bounce = Math.sin(now * 2.1) * 1.5; // ゆっくりした呼吸だけ。拍ごとのゆれは、ちらつくのでやめた
 
   // 背景:壁とカウンター(落ち着いた色で、動きはなし)
   const wall = g.createLinearGradient(0, 0, 0, 380);
@@ -495,7 +606,7 @@ function draw(now) {
   const weak = r.enemyPose === "normal" && s.enemyHp / enemy.hp < 0.5 ? "damage" : r.enemyPose;
   const ename = `${enemy.id}_${weak}`;
   const edy = r.enemyPose === "normal" ? bounce : 0;
-  if (flinch > 0) drawFlash(ename, 770, 398 + edy, SCALE[enemy.id], flinch * 0.9, flinch * 18);
+  if (flinch > 0) drawFlash(ename, 770, 398 + edy, SCALE[enemy.id], flinch * 0.5, flinch * 8);
   else drawSprite(ename, 770, 398, SCALE[enemy.id], { dy: edy });
 
   for (const shot of r.shots) drawShot(shot, now, heroX);
@@ -512,44 +623,13 @@ function draw(now) {
   g.fillStyle = "#4a2c17";
   g.fillText(`${s.enemyIndex + 1} / ${ENEMIES.length}`, W - 24, 82);
 
-  // レーン:敵のほうから主人公のほうへ、矢印が流れる。キャラクターのすぐ近くなので、目を大きく動かさなくてよい
-  g.fillStyle = "rgba(74,42,20,0.82)";
-  roundRect(HIT_X - 56, LANE_Y - 40, 470, 80, 40);
-  g.fill();
-  const pressedNow = Object.entries(r.pressed).find(([, at]) => now - at < 0.12);
-  g.save();
-  g.strokeStyle = pressedNow ? "#ffe066" : `rgba(255,255,255,${0.75 + (1 - beatPhase) * 0.25})`;
-  g.lineWidth = 5;
-  g.setLineDash([10, 8]);
-  roundRect(HIT_X - 36, LANE_Y - 36, 72, 72, 16);
-  g.stroke();
-  g.restore();
-  if (pressedNow) {
-    // おしたキーを、枠の中にうすく出す
-    g.globalAlpha = 0.6;
-    outlined(ARROW_GLYPH[pressedNow[0]], HIT_X, LANE_Y + 14, 44, "#ffe066");
-    g.globalAlpha = 1;
-  }
-
-  const lastX = HIT_X + 410; // これより右の矢印は、まだ見せない
-  for (const note of r.notes) {
-    const x = HIT_X + (note.time - now) * SPEED;
-    if (note.status === "hit") {
-      const t = Math.max(0, now - note.hitAt);
-      if (t < 0.2) drawArrowBox(note.key, HIT_X, LANE_Y, 56 + t * 160, 1 - t / 0.2);
-      continue;
-    }
-    if (x > lastX || x < HIT_X - 50) continue;
-    const fade = Math.min(1, (lastX - x) / FADE_IN);
-    if (note.status === "miss") drawArrowBox(note.key, x, LANE_Y, 56, 0.3 * fade);
-    else if (note.status === "pending") drawArrowBox(note.key, x, LANE_Y, 56, fade);
-  }
+  drawBoard(r, now);
 
   // 判定の文字
   for (const p of r.popups) {
     const t = (now - p.from) / 0.8;
     g.globalAlpha = 1 - t * t;
-    outlined(p.text, p.x, p.y - t * 30, p.big ? 40 : 32, p.color);
+    outlined(p.text, p.x, p.y - t * 30, p.big ? 34 : 28, p.color);
     g.globalAlpha = 1;
   }
 

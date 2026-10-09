@@ -108,9 +108,12 @@ export function judge(diff) {
 export function makeBar(enemy, barStart, lastPattern = -1, random = Math.random) {
   const choices = enemy.patterns.map((_, i) => i).filter((i) => i !== lastPattern);
   const index = choices[Math.floor(random() * choices.length)];
-  const notes = enemy.patterns[index].map(([beat, key]) => ({
+  const bar = Math.round(barStart / BAR);
+  const notes = enemy.patterns[index].map(([beat, key], slot) => ({
     time: barStart + beat * BEAT,
     key,
+    bar, // 何小節めか(注文カードで、同じ小節の矢印をまとめて見せる)
+    slot, // 小節の中で何番めか
     status: "pending", // pending → hit / miss
   }));
   return { index, notes };
