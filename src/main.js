@@ -192,11 +192,9 @@ const ACTION_TIME = 1.0; // 1つの手順を やって見せる 秒数
 
 // 1つの手順の 問題を、じゅんに ならべる。1つめが「ほんとうの やりかた」(main)
 function quizzesFor(step, candidates, failKey) {
-  // 1つめは かならず。2つめ以降は、あそぶたびに ランダムで 0〜(のこり全部)問 出す → 1つの手順に、1〜3問
-  const extras = shuffle(candidates.slice(1));
-  const quizzes = [candidates[0], ...extras.slice(0, Math.floor(Math.random() * (extras.length + 1)))];
-  // 出す じゅんばん:データの show(小さいほうが 先)。1つめ(ほんとうの やりかた)は、じゅんばんが うしろでも、動きと 名前の もとに なる
-  quizzes.sort((a, b) => (a.show ?? candidates.indexOf(a) + 1) - (b.show ?? candidates.indexOf(b) + 1));
+  // 書いてある問題は ぜんぶ 出す(数は 固定)。出す じゅんばんは、データの show(小さいほうが 先)
+  // 1つめ(ほんとうの やりかた)は、じゅんばんが うしろでも、動きと 矢印の名前の もとに なる
+  const quizzes = [...candidates].sort((x, y) => (x.show ?? candidates.indexOf(x) + 1) - (y.show ?? candidates.indexOf(y) + 1));
   return quizzes.map((quiz, index) => ({
     def: { step: quizzes.length > 1 ? `${step}  (${index + 1}/${quizzes.length})` : step, quiz, main: quiz === candidates[0], variant: quiz === candidates[0] ? 0 : candidates.indexOf(quiz) },
     failKey,
@@ -1451,7 +1449,11 @@ function drawTutorial(t) {
 
 // ① カードを ドラッグして ならべる(手が 見本を見せる)
 function tutArrange(t) {
-  const def = DEFAULT_RECIPE.enemies[0];
+  const def = { quiz: { steps: [
+    { text: "平らな台に 軽く 当てて、ひびを 入れる", label: "コンコン" },
+    { text: "ひびに 親指を 入れて、そっと 開く", label: "パカッ" },
+    { text: "ボウルの 中へ 落とす", label: "ポトン" },
+  ] } };
   if (!tut.q) {
     const ranked = def.quiz.steps.map((item, rank) => ({ ...item, rank }));
     tut.q = Q.createQuiz(def, "egg", [ranked[1], ranked[2], ranked[0]]); // わざと ばらばらの じゅん

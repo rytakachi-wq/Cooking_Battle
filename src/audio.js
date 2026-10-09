@@ -122,7 +122,8 @@ function scheduleBar(bar) {
     hiss(t + BEAT / 2, 0.03, { volume: 0.035, bus: songBus });
     // 表拍(拍の頭)は 高い音、裏拍(半拍)は 低い音。矢印の「半拍」の ものさしと そろえる
     tone(1568, t, 0.07, { type: "triangle", volume: 0.2, bus: songBus });
-    tone(587, t + BEAT / 2, 0.07, { type: "triangle", volume: 0.16, bus: songBus });
+    tone(587, t + BEAT / 2, 0.09, { type: "square", volume: 0.1, bus: songBus });
+    tone(294, t + BEAT / 2, 0.1, { type: "triangle", volume: 0.3, bus: songBus });
   }
   // メロディは、1拍ごと(ゆっくり)。拍をじゃましない
   for (let h = 0; h < 4; h += 1) {
@@ -260,6 +261,8 @@ export function cueAtSongTime(t, key, offbeat = false) {
   const when = ctx.currentTime + Math.max(0, t - songTime());
   // 表拍は 高く、裏拍(半拍)は 1オクターブ 低く
   const f = (CUE_PITCH[key] ?? 440) * (offbeat ? 0.5 : 2);
-  tone(f, when, 0.2, { type: "triangle", volume: 0.38 });
-  tone(f * 2, when, 0.08, { type: "sine", volume: 0.14 });
+  // 裏拍(半拍)の音は、低くても きこえるように、大きく・音色を はっきり
+  tone(f, when, offbeat ? 0.24 : 0.2, { type: offbeat ? "square" : "triangle", volume: offbeat ? 0.26 : 0.38 });
+  tone(f * 2, when, 0.08, { type: "sine", volume: offbeat ? 0.3 : 0.14 });
+  if (offbeat) tone(f * 4, when, 0.04, { type: "triangle", volume: 0.2 }); // 頭の クリック
 }

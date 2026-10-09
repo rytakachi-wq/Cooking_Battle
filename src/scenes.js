@@ -365,6 +365,78 @@ export function drawActionFx(g, key, rank, p, t, variant = 0) {
     g.restore();
     return;
   }
+  // 手順の数が ふえた分の 動き(4まいの 問題)
+  if (key === "milk") {
+    if (rank === 0) {
+      // 賞味期限:パックの 日づけを たしかめる(ルーペと チェック)
+      carton(g, 330, 300, 1.2);
+      oval(g, 372, 232, 28, 28, "rgba(235,246,255,0.85)", INK, 4);
+      g.strokeStyle = INK;
+      g.lineWidth = 6;
+      g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(392, 252);
+      g.lineTo(412, 276);
+      g.stroke();
+      if (p > 0.5) {
+        g.strokeStyle = "#2f9e44";
+        g.lineWidth = 8;
+        g.beginPath();
+        g.moveTo(360, 232);
+        g.lineTo(371, 244);
+        g.lineTo(388, 220);
+        g.stroke();
+      }
+      g.restore();
+      return;
+    }
+    rank -= 1; // 以降は、はかる・注ぐ・しまう の動き
+  } else if (key === "mix") {
+    if (rank === 1) {
+      // 牛乳を 入れて 混ぜる:パックを かたむけて 注ぐ
+      g.save();
+      g.translate(575, 218);
+      g.rotate(1.0);
+      carton(g, 0, 40, 1.0);
+      g.restore();
+      stream(g, 520, 262, 486, 300, 8);
+      const a = t * 8;
+      whisk(g, 480 + Math.cos(a) * 20, 335 + Math.sin(a) * 5);
+      g.restore();
+      return;
+    }
+    if (rank > 1) rank -= 1; // 粉を入れる・さっくり は、これまでの 動き
+  } else if (key === "butter" && rank === 3) {
+    // 焼きあがり:ホットケーキを お皿に すべらせる
+    const k = ease(p);
+    disc(g, lerp(480, 700, k), lerp(350, 372, k) - Math.sin(k * Math.PI) * 50, 68, 20, "#e0a24c");
+    oval(g, 700, 392, 70, 14, "#ffffff", INK, 3);
+    g.restore();
+    return;
+  } else if (key === "egg") {
+    if (rank === 2) {
+      // 小皿に 落として、からが ないか 見る
+      oval(g, 480, 318, 44, 10, "#f4f6f8", INK, 3);
+    } else if (rank === 3) {
+      // ボウルに うつす:小皿を かたむけて、卵を ボウルへ
+      const k = ease(p);
+      g.save();
+      g.translate(lerp(540, 520, k), lerp(330, 280, k));
+      g.rotate(-0.7 * k);
+      oval(g, 0, 0, 44, 10, "#f4f6f8", INK, 3);
+      g.restore();
+      oval(g, lerp(530, 484, k), lerp(322, 296, k) + Math.sin(k * Math.PI) * -26, 14, 14, "#ffc21a", INK, 3);
+      if (p > 0.75) {
+        g.strokeStyle = "rgba(255,255,255,0.9)";
+        g.lineWidth = 3;
+        g.beginPath();
+        g.ellipse(480, 300, 20 + 40 * (p - 0.75) * 4, 6 + 10 * (p - 0.75) * 4, 0, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.restore();
+      return;
+    }
+  }
   if (key === "prep") {
     if (rank === 0) {
       // 身じたく:きらきら(かみを むすび、エプロンを つける)
