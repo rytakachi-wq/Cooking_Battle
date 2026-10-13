@@ -21,6 +21,7 @@ const pluck = (I, n, t, len, v = 0.11) => {
   I.tone(f, t, len, { type: "triangle", volume: v });
   I.tone(f * 2, t, len * 0.5, { type: "sine", volume: v * 0.4 });
 };
+const crash = (I, t, v = 0.14) => I.hiss(t, 0.6, { volume: v, freq: 6500 });
 const bass = (I, n, t, len, v = 0.34) => I.tone(I.midi(n), t, len, { type: "triangle", volume: v });
 const stab = (I, notes, t, len, v = 0.07) => notes.forEach((n) => I.tone(I.midi(n), t, len, { type: "triangle", volume: v }));
 const bell = (I, n, t, len, v = 0.1) => {
@@ -75,35 +76,72 @@ const FIGHT_SETS = [
     ],
   },
 ];
-// 敵ごとの 調(半音の うえさげ)と、メロディの タイプ
+// 敵ごとの 調(半音の うえさげ)・メロディの タイプ・にぎやかさ(level 0〜3。ボスは 別の曲)
+// 敵が すすむほど、音が ふえて 元気に なる:
+//   level0 ドラムと ベースと メロディだけ(すっきり)
+//   level1 + うらの コード・おわりの フィル・クラッシュ
+//   level2 + 細かい ハット・はねる ベース・きらきらの アルペジオ
+//   level3 + クラップ・うらの キック・オクターブの 重ね
 const FLAVOR = {
-  egg: { shift: 0, set: 0 },
-  milk: { shift: 2, set: 1 },
-  mix: { shift: 4, set: 0 },
-  butter: { shift: 5, set: 1 },
+  egg: { shift: 0, set: 0, level: 0 },
+  milk: { shift: 2, set: 1, level: 1 },
+  mix: { shift: 4, set: 0, level: 2 },
+  butter: { shift: 5, set: 1, level: 3 },
+  onion: { shift: 0, set: 0, level: 0 },
+  carrot: { shift: 2, set: 1, level: 1 },
+  cabbage: { shift: 4, set: 0, level: 2 },
+  consomme: { shift: 5, set: 1, level: 3 },
 };
 
 function fight(t0, seg, i, I) {
   const beat = seg.beat;
   const fl = FLAVOR[seg.flavor] ?? FLAVOR.egg;
+  const lv = fl.level;
   const ci = i % 4;
   const phrase = FIGHT_SETS[fl.set][i % 8 < 4 ? "A" : "B"][ci];
   for (let b = 0; b < 4; b += 1) {
     const t = t0 + b * beat;
-    ticks(I, t, beat, seg.half !== false);
+    ticks(I, t, beat);
     hat(I, t, 0.1);
-    hat(I, t + beat / 2, 0.05);
-    if (b % 2 === 0) kick(I, t);
-    else snare(I, t);
-    // ベース:拍の頭で ルート、2拍めの うらで オクターブ
-    bass(I, FIGHT_ROOTS[ci] + fl.shift + (b === 2 ? -5 : 0), t, beat - 0.05);
+    hat(I, t + beat / 2, lv >= 1 ? 0.08 : 0.05);
+    if (lv >= 2) {
+      hat(I, t + beat / 4, 0.03);
+      hat(I, t + (beat * 3) / 4, 0.03);
+    }
+    if (b % 2 === 0) kick(I, t, 0.8);
+    else {
+      snare(I, t, 0.3);
+      if (lv >= 3) clap(I, t, 0.16);
+    }
+    if (lv >= 3 && b === 1) kick(I, t + beat / 2, 0.5);
+    // ベース:すすむほど はねる(8分)
+    const root = FIGHT_ROOTS[ci] + fl.shift + (b === 2 ? -5 : 0);
+    if (lv >= 2) {
+      bass(I, root, t, beat * 0.45);
+      bass(I, root + 12, t + beat / 2, beat * 0.4, 0.26);
+    } else {
+      bass(I, root, t, beat - 0.05);
+    }
   }
   if (i === 0) return; // はじめの 1小節は、じゅんびの 小節(メロディなし)
+  // 8小節ごとの はじめに クラッシュ
+  if (lv >= 1 && i % 8 === 0) crash(I, t0);
   // コードの スタブ:うら拍で
-  [0.5, 2.5].forEach((h) => stab(I, FIGHT_STABS[ci].map((n) => n + fl.shift), t0 + h * beat, beat * 0.4, 0.07));
+  if (lv >= 1) [0.5, 2.5].forEach((h) => stab(I, FIGHT_STABS[ci].map((n) => n + fl.shift), t0 + h * beat, beat * 0.4, 0.07));
+  // 4小節めの おわりは フィル
+  if (lv >= 1 && ci === 3) {
+    snare(I, t0 + beat * 3.5, 0.2);
+    snare(I, t0 + beat * 3.75, 0.24);
+  }
+  // きらきらの アルペジオ(コードを 高い 音で)
+  if (lv >= 2) {
+    FIGHT_STABS[ci].forEach((n, k) => bell(I, n + 24 + fl.shift, t0 + beat * 3 + (k * beat) / 3, beat * 0.5, 0.045));
+  }
   // メロディ
   phrase.forEach((n, s) => {
-    if (n) pluck(I, n + fl.shift, t0 + (s * beat) / 2, beat * 0.45, 0.1);
+    if (!n) return;
+    pluck(I, n + fl.shift, t0 + (s * beat) / 2, beat * 0.45, 0.1);
+    if (lv >= 3) pluck(I, n + fl.shift + 12, t0 + (s * beat) / 2, beat * 0.4, 0.035); // オクターブの 重ね
   });
 }
 
@@ -148,6 +186,7 @@ function boss(t0, seg, i, I) {
     bass(I, BOSS_ROOTS[ci] + (b === 3 ? 7 : 12), t + beat / 2, beat * 0.4, 0.3);
   }
   if (i === 0) return;
+  if (i % 4 === 0) crash(I, t0, 0.18);
   // 16分の アルペジオ
   for (let s = 0; s < 16; s += 1) {
     const n = BOSS_ARP[ci][s % 3] + (s % 6 >= 3 ? 12 : 0);
@@ -155,7 +194,9 @@ function boss(t0, seg, i, I) {
   }
   // メロディ
   BOSS_MELODY[i % 8 < 4 ? "A" : "B"][ci].forEach((n, s) => {
-    if (n) pluck(I, n, t0 + (s * beat) / 2, beat * 0.45, 0.11);
+    if (!n) return;
+    pluck(I, n, t0 + (s * beat) / 2, beat * 0.45, 0.11);
+    pluck(I, n + 12, t0 + (s * beat) / 2, beat * 0.4, 0.04); // オクターブの 重ね(ボスは にぎやか)
   });
 }
 
@@ -186,6 +227,8 @@ function quiz(t0, seg, i, I) {
     pluck(I, n, t0 + (k * beat) / 2, beat * 1.2, 0.05);
     pluck(I, n, t0 + beat * 2 + (k * beat) / 2, beat * 1.2, 0.045);
   });
+  // はずむ 小さな 音(明るく、考えるじゃまは しない)
+  QUIZ_CHORDS[ci].forEach((n, k) => pluck(I, n + 12, t0 + beat * (k + 0.5), beat * 0.3, 0.03));
   QUIZ_BELLS[ci].forEach((n, s) => {
     if (n) bell(I, n, t0 + (s * beat) / 2, beat * 1.6, 0.06);
   });
@@ -220,12 +263,17 @@ function cover(t0, seg, i, I) {
   for (let b = 0; b < 4; b += 1) {
     const t = t0 + b * beat;
     if (b % 2 === 0) kick(I, t, 0.7);
-    else snare(I, t, 0.22);
+    else {
+      snare(I, t, 0.22);
+      clap(I, t, 0.12);
+    }
     hat(I, t, 0.08);
     hat(I, t + beat / 2, 0.05);
     bass(I, COVER_ROOTS[ci], t, beat - 0.05, 0.28);
   }
   [0.5, 1.5, 2.5, 3.5].forEach((h) => stab(I, COVER_STABS[ci], t0 + h * beat, beat * 0.3, 0.06));
+  if (ci % 4 === 0) crash(I, t0, 0.1);
+  COVER_STABS[ci].forEach((n, k) => bell(I, n + 24, t0 + beat * 3 + (k * beat) / 3, beat * 0.5, 0.04)); // きらきら
   COVER_MELODY[ci].forEach((n, s) => {
     if (n) pluck(I, n, t0 + (s * beat) / 2, beat * 0.45, 0.1);
   });
