@@ -47,6 +47,7 @@ const POSES = {
   hero: ["normal", "attack", "damage", "win", "lose"],
   enemy: ["normal", "attack", "damage", "down"],
 };
+const FAIL_ART = { egg: "fail_shells", milk: "fail_milk", mix: "fail_lumps", butter: "fail_burnt", syrup: "fail_syrup" };
 const SCALE = { hero: 0.82, egg: 1.6, milk: 1.4, mix: 1.5, butter: 1.9, syrup: 1.75 };
 const images = {};
 function loadImages() {
@@ -370,6 +371,7 @@ function judgeQuiz(now) {
   q.wrong = !result.correct;
   q.revealAt = now + 0.55;
   run.action = null;
+  if (!result.correct && q.failKey !== "prep") run.failKey = q.failKey;
   run.failLook = !result.correct; // まちがえた見た目は、正解するまで 次の問題にも つづく
   if (!result.correct) {
     setHero("damage", now, 1.6); // 主人公も しっぱい
@@ -404,7 +406,6 @@ function endQuiz(now = songTime()) {
     return;
   }
   run.phase = "fight";
-  run.failLook = false;
   run.lastPattern = -1;
   // その敵のテンポの曲を はじめる。矢印の拍は、この曲の小節に そろえる(1小節めは じゅんびの小節)
   const foe = enemyOf(run.state);
@@ -423,15 +424,23 @@ function endQuiz(now = songTime()) {
 function showReview(s) {
   const list = $("r-review");
   list.replaceChildren();
+  const add = (parent, tag, cls, text) => {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    el.textContent = text;
+    parent.append(el);
+    return el;
+  };
   for (const item of s.review) {
     const li = document.createElement("li");
     li.className = item.correct ? "ok" : "ng";
-    const head = document.createElement("strong");
-    head.textContent = `${item.correct ? "◎" : "×"} ${item.step}`;
-    const body = document.createElement("span");
-    const order = item.answer.map((text, n) => `${n + 1}. ${text}`).join(" → ");
-    body.textContent = item.correct ? `${order}　${item.reason}` : `${item.fail} 正しくは： ${order}　${item.reason}`;
-    li.append(head, body);
+    add(li, "strong", "", `${item.correct ? "◎ せいかい" : "× まちがい"}　${item.step}`);
+    add(li, "p", "rv-q", item.question ?? "");
+    if (!item.correct) add(li, "p", "rv-fail", item.fail);
+    add(li, "p", "rv-label", item.correct ? "じゅんばん" : "正しい じゅんばん");
+    const ol = add(li, "ol", "rv-steps", "");
+    item.answer.forEach((text) => add(ol, "li", "", text));
+    add(li, "p", "rv-reason", `ポイント：${item.reason}`);
     list.append(li);
   }
   const tips = $("r-tips");
@@ -1000,7 +1009,7 @@ function drawBoard(r, now) {
     drawLid(cx - 146, cy - 28);
     g.textAlign = "left";
     g.fillStyle = "#3d5f8f";
-    g.fillText("ききましょう ♪  (ふたを してあるよ)", cx - 116, cy - 22);
+    g.fillText("ききましょう ♪", cx - 116, cy - 22);
   } else {
     g.textAlign = "left";
     g.fillStyle = responding ? "#e8472f" : "rgba(74,44,23,0.55)";
@@ -1446,15 +1455,13 @@ function draw(now) {
     dy: heroPose === "normal" ? bounce : 0,
   });
   g.restore();
-  if (inQuiz && r.failLook) {
-    // 前の問題を まちがえたまま:「しっぱい」のしるしを つけておく(正解すると きえる)
-    const stamp = images.ui_stamp_fail;
-    if (stamp?.complete && stamp.naturalWidth) {
-      g.save();
-      g.translate(215, 255);
-      g.rotate(-0.15);
-      g.drawImage(stamp, -38, -33, 76, 66);
-      g.restore();
+  if (inQuiz && r.failLook && r.failKey) {
+    // 前の問題を まちがえた「しっぱい料理」を、正解するまで 次の問題にも 出しておく
+    const fimg = images[FAIL_ART[r.failKey]];
+    if (fimg?.complete && fimg.naturalWidth) {
+      const fw = fimg.naturalWidth * 1.3;
+      const fh = fimg.naturalHeight * 1.3;
+      g.drawImage(fimg, 480 - fw / 2, 372 - fh, fw, fh); // 調理台の まんなか(ボウルの上)に のせる
     }
   }
 
@@ -1960,7 +1967,7 @@ function syncSoundDialog() {
   off.nextElementSibling.textContent = offsetText(getOffset());
   // 戦いの途中で かえると、曲と矢印が ずれるので、表紙・結果だけで かえられる
   off.disabled = !!run;
-  $("offset-note").textContent = run ? "タイミングは、表紙で かえられるよ。" : "タイミング:＋で 矢印が はやく、−で おそく なるよ。";
+  $("offset-note").hidden = !run; // 戦いの途中は 変えられない ことだけ 知らせる
 }
 function openSound() {
   unlock();

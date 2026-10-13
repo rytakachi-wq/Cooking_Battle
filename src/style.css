@@ -297,3 +297,14 @@ a.btn { display: inline-block; background: var(--sub); }
 .dialog .note { margin: 0 0 14px; }
 .dialog .buttons { justify-content: space-between; }
 .vol input:disabled { opacity: 0.45; }
+
+.review ul > li { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px dashed #e8d6b8; }
+.review ul > li:last-child { border-bottom: 0; }
+.review li strong { font-size: 16px; }
+.review p { margin: 4px 0; }
+.review .rv-q { font-weight: bold; }
+.review .rv-fail { color: var(--accent); }
+.review .rv-label { margin-top: 8px; font-size: 13px; font-weight: bold; opacity: 0.7; }
+.review .rv-steps { margin: 2px 0 6px; padding-left: 1.6em; line-height: 1.7; font-size: 14px; list-style: decimal; }
+.review .rv-steps li { margin: 0; }
+.review .rv-reason { padding: 6px 10px; line-height: 1.7; background: #fff4d8; border-radius: 10px; font-size: 14px; }

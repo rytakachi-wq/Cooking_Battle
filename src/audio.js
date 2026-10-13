@@ -367,47 +367,28 @@ function woodblock(when, vol = 1) {
   hiss(when, 0.025, { volume: 0.3 * vol, freq: 4200, out: rhythmGain });
 }
 
+// 表拍の矢印は ぜんぶ「ポ」、休みは「プ」、裏拍(半拍)の矢印は「コッ」
+function po(when, vol = 1) {
+  tone(1175, when, 0.13, { type: "sine", volume: 0.85 * vol, to: 1000, out: rhythmGain });
+  tone(2350, when, 0.04, { type: "sine", volume: 0.2 * vol, out: rhythmGain });
+}
+
+function pu(when, vol = 1) {
+  tone(659, when, 0.15, { type: "sine", volume: 0.95 * vol, to: 520, out: rhythmGain });
+  tone(330, when, 0.12, { type: "sine", volume: 0.4 * vol, out: rhythmGain });
+}
+
 export function cueAtSongTime(t, key, offbeat = false) {
   if (!ctx || !master) return;
   const when = ctx.currentTime + Math.max(0, t - songTime());
-  if (offbeat) {
-    woodblock(when, 1.3);
-    return;
-  }
-  if (key === "L") {
-    // ピ:高くて 短い
-    tone(1760, when, 0.09, { type: "sine", volume: 0.8, to: 2000, out: rhythmGain });
-    tone(3520, when, 0.03, { type: "triangle", volume: 0.2, out: rhythmGain });
-  } else if (key === "U") {
-    // ポ:まるい 中高音
-    tone(1175, when, 0.13, { type: "sine", volume: 0.85, to: 1000, out: rhythmGain });
-    tone(2350, when, 0.04, { type: "sine", volume: 0.2, out: rhythmGain });
-  } else if (key === "D") {
-    // パ:かどの ある 音(ぱっと はじける)
-    tone(880, when, 0.1, { type: "triangle", volume: 0.8, out: rhythmGain });
-    hiss(when, 0.03, { volume: 0.5, freq: 3000, out: rhythmGain });
-  } else {
-    // プ:低めで ふくらむ 音
-    tone(659, when, 0.15, { type: "sine", volume: 0.95, to: 520, out: rhythmGain });
-    tone(330, when, 0.12, { type: "sine", volume: 0.4, out: rhythmGain });
-  }
+  if (offbeat) woodblock(when, 1.3);
+  else po(when);
 }
+
 export function restCueAtSongTime(t, kind) {
   if (!ctx || !master) return;
   const when = ctx.currentTime + Math.max(0, t - songTime());
-  if (kind === "beat") {
-    // 表拍の休み:「チッ」
-    tone(1046, when, 0.07, { type: "sine", volume: 1.4, to: 700, out: rhythmGain });
-    tone(2093, when, 0.03, { type: "square", volume: 0.3, out: rhythmGain });
-    hiss(when, 0.04, { volume: 0.6, freq: 5000, out: rhythmGain });
-  } else if (kind === "half") {
-    // 裏拍の休み:やさしい「コッ」
-    woodblock(when, 0.55);
-  } else {
-    // 小節の おわりの休み:低い音は 使わず、やわらかい 高めの音
-    tone(784, when, 0.2, { type: "sine", volume: 1.0, to: 700, out: rhythmGain });
-    tone(1568, when, 0.05, { type: "triangle", volume: 0.3, out: rhythmGain });
-  }
+  pu(when, kind === "half" ? 0.7 : 1.3);
 }
 
 // 設定を 初期に もどす(音の大きさ・タイミング。おと ON/OFF は そのまま)
