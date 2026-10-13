@@ -669,6 +669,11 @@ function attack(now, grade) {
   run.pendingGrade = grade;
 }
 
+// その敵の 判定の はば(だんだん きびしく)
+function winScale() {
+  return enemyOf(run.state).window ?? 1;
+}
+
 function press(key, now) {
   if (!run || run.phase !== "fight") return;
   run.pressed[key] = now;
@@ -676,7 +681,7 @@ function press(key, now) {
   for (const note of run.notes) {
     if (note.status !== "pending") continue;
     const d = Math.abs(note.time - now);
-    if (d <= WINDOW.good && (!target || d < Math.abs(target.time - now))) target = note;
+    if (d <= WINDOW.good * winScale() && (!target || d < Math.abs(target.time - now))) target = note;
   }
   if (!target) {
     // 敵が やって見せているあいだは、おせない
@@ -688,7 +693,7 @@ function press(key, now) {
     onMiss(target, now);
     return;
   }
-  const grade = judge(target.time - now);
+  const grade = judge(target.time - now, winScale());
   target.status = "hit";
   target.hitAt = now;
   registerHit(run.state, grade);
@@ -749,7 +754,7 @@ function update(now) {
     }
     for (const note of r.notes) {
       if (r.phase !== "fight") break;
-      if (note.status === "pending" && note.time < now - WINDOW.good) onMiss(note, now);
+      if (note.status === "pending" && note.time < now - WINDOW.good * winScale()) onMiss(note, now);
     }
   } else if (r.phase === "down" && now >= r.phaseUntil) {
     nextEnemy(r.state);
@@ -1509,7 +1514,7 @@ function draw(now) {
   if (r.stamp && now >= r.stamp.from && now < r.stamp.until) {
     g.save();
     g.globalAlpha = Math.min(1, (now - r.stamp.from) * 6, (r.stamp.until - now) * 3);
-    drawFailStamp(g, now, now - r.stamp.from, !!inQuiz);
+    if (inQuiz) drawFailStamp(g, now, now - r.stamp.from, true); // 戦いの画面には 出さない
     g.restore();
   }
 

@@ -53,10 +53,10 @@ export function createState(recipe = DEFAULT_RECIPE) {
 }
 
 // 押した時刻と音符の時刻の差(秒)から判定する。はずれすぎなら null。
-export function judge(diff) {
+export function judge(diff, scale = 1) {
   const d = Math.abs(diff);
-  if (d <= WINDOW.perfect) return "perfect";
-  if (d <= WINDOW.good) return "good";
+  if (d <= WINDOW.perfect * scale) return "perfect";
+  if (d <= WINDOW.good * scale) return "good";
   return null;
 }
 
