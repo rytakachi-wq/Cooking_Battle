@@ -387,11 +387,11 @@ export function drawFailStamp(g, t, age = 1, quiz = false) {
   const stamp = ready("ui_stamp_fail");
   if (stamp) {
     // 見やすい ばしょに、大きく。出るとき ぽんと大きく なって おちつく
-    const w = quiz ? 260 : 220;
+    const w = quiz ? 260 : 150;
     const h = (stamp.naturalHeight * w) / stamp.naturalWidth;
     const pop = 1 + 0.6 * Math.max(0, 1 - age / 0.18);
     g.save();
-    g.translate(STATION.x, quiz ? 300 : 372);
+    g.translate(quiz ? STATION.x : 235, quiz ? 300 : 470); // 戦いでは、注文カード・料理・敵と かさならない 左下へ
     g.rotate(-0.1);
     g.scale(pop, pop);
     g.drawImage(stamp, -w / 2, -h / 2, w, h);

@@ -144,8 +144,11 @@ function begin(cp = null) {
     state.recipe = DEFAULT_RECIPE;
     state.combo = 0;
     state.enemyIndex = cp.enemyIndex;
-    state.enemyHp = state.recipe.enemies[cp.enemyIndex].hp;
-    state.enemyMax = state.enemyHp;
+    state.enemyMax = state.recipe.enemies[cp.enemyIndex].hp;
+    for (let k = state.wrong[state.recipe.enemies[cp.enemyIndex].id] ?? 0; k > 0; k -= 1) {
+      state.enemyMax = Math.round(state.enemyMax * (1 + penaltyRate(state.recipe.enemies[cp.enemyIndex])));
+    }
+    state.enemyHp = state.enemyMax;
     state.enemyMisses = 0;
   }
   run = {
@@ -176,6 +179,8 @@ function begin(cp = null) {
     lastFrame: 0,
     banner: { text: "", from: 0, until: 0 },
     quiz: null,
+    failLook: !!cp?.failLook,
+    failKey: cp?.failKey ?? null,
   };
   show("play");
   const first = enemyOf(run.state);
@@ -192,7 +197,7 @@ function begin(cp = null) {
 function saveProgress() {
   const s = run.state;
   const { recipe, ...rest } = s;
-  saveCheckpoint({ enemyIndex: s.enemyIndex, state: JSON.parse(JSON.stringify(rest)) });
+  saveCheckpoint({ failLook: !!run.failLook, failKey: run.failKey ?? null, enemyIndex: s.enemyIndex, state: JSON.parse(JSON.stringify(rest)) });
 }
 
 function quitToCover() {
@@ -714,12 +719,11 @@ function update(now) {
       r.notes.push(...bar.notes);
       // 矢印の ない拍(休み)にも、それ専用の音(敵が見せるときと、まねして おすときの、どちらにも)
       const taken = new Set(bar.notes.map((n) => n.beat));
-      const usesHalf = bar.notes.some((n) => n.beat % 1 !== 0); // この組に 半拍の 矢印が ないなら、半拍の 休みの音は なし
       for (let k = 0; k <= 6; k += 1) {
         const p = k * 0.5;
         if (taken.has(p)) continue;
         const kind = p === 3 ? "end" : p % 1 === 0 ? "beat" : "half";
-        if (kind === "half" && !usesHalf) continue;
+        if (kind === "half") continue; // 矢印の ない 裏拍は 鳴らさない(裏拍は 半拍の矢印のときだけ)
         r.restCues.push({ time: callStart + p * seg.beat, kind, cued: false }, { time: respStart + p * seg.beat, kind, cued: false });
       }
       r.nextBar += 2;
@@ -751,6 +755,14 @@ function update(now) {
     r.tip = null;
     const enemy = enemyOf(r.state);
     run.quizQueue = quizzesFor(enemy.step, enemy.quizzes, enemy.id);
+    if (run.failLook) {
+      // 前の問題を まちがえたまま:この敵も 強い姿・体力アップを 引きつぐ(正解すると つぎの敵からは 元に もどる)
+      const st = r.state;
+      st.fails[enemy.id] = true;
+      st.wrong[enemy.id] = (st.wrong[enemy.id] ?? 0) + 1;
+      st.enemyMax = Math.round(st.enemyMax * (1 + penaltyRate(enemy)));
+      st.enemyHp = st.enemyMax;
+    }
     saveProgress();
     nextQuiz(now);
   } else if (r.phase === "end" && now >= r.phaseUntil) {
