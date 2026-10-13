@@ -7,7 +7,9 @@ import {
   HIT_DAMAGE,
   BEAT,
   EXTRA_KEYS,
+  MISS_DAMAGE,
   PLAYER_HP,
+  QUIZ_MISS_DAMAGE,
   WINDOW,
   accuracy,
   createState,
@@ -48,7 +50,7 @@ const POSES = {
   enemy: ["normal", "attack", "damage", "down"],
 };
 const FAIL_ART = { egg: "fail_shells", milk: "fail_milk", mix: "fail_lumps", butter: "fail_burnt", syrup: "fail_syrup" };
-const SCALE = { hero: 0.82, egg: 1.6, milk: 1.5, mix: 1.5, butter: 1.9, syrup: 1.75 };
+const SCALE = { hero: 0.82, egg: 1.6, milk: 1.5, mix: 1.5, butter: 2.15, syrup: 1.75 };
 const images = {};
 function loadImages() {
   const jobs = [];
@@ -377,6 +379,11 @@ function judgeQuiz(now) {
   q.revealAt = now + 0.55;
   run.action = null;
   if (!result.correct && q.failKey !== "prep") run.failKey = q.failKey;
+  if (result.correct && run.failLook && run.quizInjury > 0) {
+    healHero(run.quizInjury, now); // まちがえたあと、次の問題で せいこうしたら、けがした ぶん 回復
+    run.quizInjury = 0;
+  }
+  if (!result.correct) run.quizInjury = (run.quizInjury ?? 0) + QUIZ_MISS_DAMAGE;
   run.failLook = !result.correct; // まちがえた見た目は、正解するまで 次の問題にも つづく
   if (!result.correct) {
     setHero("damage", now, 1.6); // 主人公も しっぱい
@@ -547,6 +554,20 @@ function spawnHitFx(x, y, grade, now) {
   }
 }
 
+// 体力が 回復:緑の 光の わ・ふわっと のぼる「＋」・「HP +8」・しゅわっと 音
+function healHero(amount, now) {
+  const s = run.state;
+  const gain = Math.min(amount, PLAYER_HP - s.playerHp);
+  if (gain <= 0) return;
+  s.playerHp += gain;
+  run.fx.push({ kind: "healring", from: now, life: 0.9 });
+  for (let i = 0; i < 10; i += 1) {
+    run.fx.push({ kind: "plus", x: 100 + Math.random() * 100, y: 330 + Math.random() * 40, vy: -70 - Math.random() * 60, from: now + i * 0.04, life: 0.9, size: 8 + (i % 3) * 3 });
+  }
+  run.popups.push({ text: `HP +${gain}`, color: "#2f9e44", x: 150, y: 150, from: now, big: true });
+  playSe("heal");
+}
+
 function comboBurst(combo, now) {
   run.fx.push({ kind: "combo", text: `${combo} COMBO!`, from: now, life: 1.0 });
   run.fx.push({ kind: "glow", from: now, life: 0.55 });
@@ -588,6 +609,35 @@ function drawFx(r, now) {
       g.lineWidth = 2;
       g.strokeStyle = INK;
       g.stroke();
+    } else if (f.kind === "healring") {
+      // 主人公の まわりに ひろがる 緑の わ
+      const r = 40 + k * 90;
+      g.globalAlpha = 0.8 * (1 - k);
+      g.lineWidth = 8 * (1 - k) + 2;
+      g.strokeStyle = "#5fdc7a";
+      g.beginPath();
+      g.ellipse(150, 320, r, r * 1.2, 0, 0, Math.PI * 2);
+      g.stroke();
+      const grd = g.createRadialGradient(150, 320, 10, 150, 320, 150);
+      grd.addColorStop(0, "rgba(120,255,150,0.45)");
+      grd.addColorStop(1, "rgba(120,255,150,0)");
+      g.globalAlpha = 1 - k;
+      g.fillStyle = grd;
+      g.fillRect(0, 150, 320, 320);
+    } else if (f.kind === "plus") {
+      const x = f.x + Math.sin(age * 6 + f.size) * 8;
+      const y = f.y + f.vy * age;
+      g.globalAlpha = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
+      g.translate(x, y);
+      const w = f.size * 0.7;
+      g.fillStyle = "#4ecb71";
+      g.strokeStyle = "#fff";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.rect(-f.size, -w / 2, f.size * 2, w);
+      g.rect(-w / 2, -f.size, w, f.size * 2);
+      g.stroke();
+      g.fill();
     } else if (f.kind === "confetti") {
       const x = f.x + f.vx * age + Math.sin(age * 5 + f.spin) * 18;
       const y = f.y + f.vy * age;
@@ -699,7 +749,10 @@ function press(key, now) {
   registerHit(run.state, grade);
   popup(grade === "perfect" ? "PERFECT!" : "GOOD", grade === "perfect" ? "#ff8a00" : "#2f9e44", now);
   spawnHitFx(BOARD.cx - 111 + target.beat * 74, BOARD.cy + 6, grade, now);
-  if (run.state.combo > 0 && run.state.combo % COMBO_STEP === 0) comboBurst(run.state.combo, now);
+  if (run.state.combo > 0 && run.state.combo % COMBO_STEP === 0) {
+    comboBurst(run.state.combo, now);
+    healHero(MISS_DAMAGE, now); // 5コンボごとに、1回の ミスぶん 回復
+  }
   attack(now, grade);
   playSe(grade);
   defeatIfDone(now, target.bar, true);
@@ -763,6 +816,7 @@ function update(now) {
     r.tip = null;
     const enemy = enemyOf(r.state);
     run.quizQueue = quizzesFor(enemy.step, enemy.quizzes, enemy.id);
+    run.quizInjury = 0;
     run.failLook = false; // 引きつぎは 同じ敵の 問題の あいだだけ。次の敵では 元に もどる
     run.failKey = null;
     saveProgress();
@@ -1310,7 +1364,7 @@ function drawNextEnemyMini(r, now) {
 }
 
 // 強化形態の絵の倍率。高さ(boss=大きめ)と、はば(画面の右はしに はみださない)の せまいほうに あわせる。
-const STRONG_FIT = { egg: [320, 360], milk: [330, 360], mix: [300, 320], butter: [280, 320], syrup: [340, 350] };
+const STRONG_FIT = { egg: [320, 360], milk: [330, 360], mix: [300, 320], butter: [310, 340], syrup: [340, 350] };
 function strongArtScale(id) {
   const img = images[`${id}_strong_normal`];
   if (!img || !img.naturalHeight) return SCALE[id];

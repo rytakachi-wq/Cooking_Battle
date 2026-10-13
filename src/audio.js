@@ -341,6 +341,9 @@ export function playSe(name) {
   } else if (name === "clear") {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.07, 0.2, { type: "triangle", volume: 0.5 }));
     tone(1568, t + 0.38, 0.5, { type: "sine", volume: 0.4 });
+  } else if (name === "heal") {
+    [523, 659, 784, 1047].forEach((f, i) => tone(f, t + i * 0.06, 0.22, { type: "sine", volume: 0.45 }));
+    tone(2093, t + 0.24, 0.3, { type: "triangle", volume: 0.18 });
   } else if (name === "combo") {
     [784, 988, 1175, 1568].forEach((f, i) => tone(f, t + i * 0.06, 0.18, { type: "triangle", volume: 0.4 }));
   } else if (name === "button") {
