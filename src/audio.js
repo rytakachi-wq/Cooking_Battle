@@ -197,7 +197,7 @@ export function startSong() {
 
 // 曲を かえる。at は、曲の時計での はじまりの 秒(なければ、すぐ あと)。まえの曲は、すぐ 小さくして きえる。
 // かえす 値:いまの曲の {beat, bar, t0, ...}(矢印の 拍を これに そろえる)
-export function playTrack(name, bpm, at, flavor = "") {
+export function playTrack(name, bpm, at, flavor = "", extra = {}) {
   if (!ctx || !master || !TRACKS[name]) return null;
   ensureClock();
   fadeOut();
@@ -205,7 +205,7 @@ export function playTrack(name, bpm, at, flavor = "") {
   songBus.connect(bgmGain);
   tickBus = ctx.createGain();
   tickBus.connect(rhythmGain);
-  seg = { name, bpm, beat: 60 / bpm, bar: 240 / bpm, t0: at ?? songTime() + 0.25, flavor, scheduled: 0 };
+  seg = { name, bpm, beat: 60 / bpm, bar: 240 / bpm, t0: at ?? songTime() + 0.25, flavor, scheduled: 0, ...extra };
   playing = true;
   if (!timer) timer = setInterval(pump, 250);
   pump();
@@ -335,6 +335,9 @@ export function playSe(name) {
     [523, 659, 784, 1047].forEach((f, i) => tone(f, t + i * 0.13, 0.3, { type: "square", volume: 0.2 }));
   } else if (name === "lose") {
     [392, 330, 262, 196].forEach((f, i) => tone(f, t + i * 0.2, 0.35, { type: "triangle", volume: 0.3 }));
+  } else if (name === "clear") {
+    [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.07, 0.2, { type: "triangle", volume: 0.5 }));
+    tone(1568, t + 0.38, 0.5, { type: "sine", volume: 0.4 });
   } else if (name === "combo") {
     [784, 988, 1175, 1568].forEach((f, i) => tone(f, t + i * 0.06, 0.18, { type: "triangle", volume: 0.4 }));
   } else if (name === "button") {

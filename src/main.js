@@ -19,6 +19,7 @@ import {
   registerHit,
   registerMiss,
 } from "./game.js";
+import { penaltyRate } from "./game.js";
 import { activeSources, alive, getVolume, setVolume, cueAtSongTime, restCueAtSongTime, playTrack, trackName, watch, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import * as Q from "./quiz.js";
@@ -354,7 +355,11 @@ function judgeQuiz(now) {
   }
   $("quiz-verdict").textContent = result.correct ? "◎ せいかい！" : "× じゅんばんが ちがったよ";
   $("quiz-verdict").className = result.correct ? "verdict ok" : "verdict ng";
-  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　体力が へって、つぎの敵が強くなったよ。`;
+  $("quiz-fail").textContent = result.correct ? "" : `${result.fail}　体力が へったよ。`;
+  const foeNow = enemyOf(run.state);
+  const pct = Math.round(penaltyRate(foeNow) * 100);
+  $("quiz-power").textContent = result.correct ? "" : `つぎの敵が 強くなった！ 体力 ＋${pct}%（${foeNow.hp}→${run.state.enemyMax}）`;
+  $("quiz-power").hidden = result.correct;
   $("quiz-reason").textContent = result.reason;
   $("quiz-feedback").hidden = false;
   playSe(result.correct ? "perfect" : "miss");
@@ -380,7 +385,8 @@ function endQuiz(now = songTime()) {
   const foe = enemyOf(run.state);
   const bpm = foe.bpm ?? 120;
   run.seg = { t0: now + 0.35, bpm, beat: 60 / bpm, bar: 240 / bpm };
-  playTrack(foe.boss ? "boss" : "fight", bpm, run.seg.t0, foe.id);
+  const foeUsesHalf = foe.patterns.some((p) => p.some(([beat]) => beat % 1 !== 0));
+  playTrack(foe.boss ? "boss" : "fight", bpm, run.seg.t0, foe.id, { half: foeUsesHalf });
   run.nextBar = 1;
   run.banner = { text: foe.step, from: now, until: now + 2.5 };
   if (run.state.fails[enemyOf(run.state).id]) {
@@ -451,6 +457,22 @@ function onMiss(note, now) {
 
 // 敵の体力が0でも、その小節の矢印を ぜんぶ おし終える(または見のがす)まで、敵は たおれない。
 // (さいごの矢印を おさなくても すすめてしまう、ということが ないように)
+// 敵を たおしたとき:せいこうの えんしゅつ(紙ふぶき・星・「せいこう！」・主人公の かち ポーズ・ファンファーレ)
+function clearBurst(now) {
+  run.fx.push({ kind: "clear", from: now, life: 1.6 });
+  run.fx.push({ kind: "glow", from: now, life: 0.7 });
+  const colors = ["#ff6b6b", "#ffd23f", "#4ecb71", "#4da3ff", "#ff9d5c", "#c78bff"];
+  for (let i = 0; i < 46; i += 1) {
+    run.fx.push({ kind: "confetti", x: 120 + Math.random() * 720, y: -20 - Math.random() * 120, vx: (Math.random() - 0.5) * 80, vy: 150 + Math.random() * 140, from: now + Math.random() * 0.25, life: 1.9, w: 8 + Math.random() * 6, color: colors[i % colors.length], spin: Math.random() * 6 });
+  }
+  for (let i = 0; i < 16; i += 1) {
+    const a = (i / 16) * Math.PI * 2;
+    run.fx.push({ kind: "star", x: 770, y: 290, vx: Math.cos(a) * 230, vy: Math.sin(a) * 190 - 40, from: now, life: 0.9, size: 9 + (i % 3) * 3, color: FX_STARS[i % FX_STARS.length], spin: i });
+  }
+  setHero("win", now, 2.2);
+  playSe("clear");
+}
+
 function defeatIfDone(now, bar, hit) {
   if (!run || run.phase !== "fight" || run.state.enemyHp > 0) return;
   if (run.notes.some((n) => n.bar === bar && n.status === "pending")) return;
@@ -461,6 +483,7 @@ function defeatIfDone(now, bar, hit) {
     return;
   }
   clearPending();
+  clearBurst(now);
   showTip(now); // 倒した敵の豆知識を、1行だけ出す
   run.downAt = now + 0.2; // 三日月がとどいてから、たおれる
   if (run.state.enemyIndex === run.state.recipe.enemies.length - 1) {
@@ -527,6 +550,46 @@ function drawFx(r, now) {
       g.lineWidth = 2;
       g.strokeStyle = INK;
       g.stroke();
+    } else if (f.kind === "confetti") {
+      const x = f.x + f.vx * age + Math.sin(age * 5 + f.spin) * 18;
+      const y = f.y + f.vy * age;
+      g.globalAlpha = k > 0.8 ? 1 - (k - 0.8) / 0.2 : 1;
+      g.translate(x, y);
+      g.rotate(f.spin + age * 7);
+      g.scale(1, Math.cos(age * 9 + f.spin));
+      g.fillStyle = f.color;
+      g.fillRect(-f.w / 2, -f.w / 4, f.w, f.w / 2);
+    } else if (f.kind === "clear") {
+      // 「せいこう！」:緑の まるに チェック、と 大きな 文字
+      const pop = k < 0.2 ? 0.5 + 0.7 * (k / 0.2) : 1.2 - 0.2 * Math.min(1, (k - 0.2) / 0.25);
+      g.globalAlpha = k > 0.75 ? 1 - (k - 0.75) / 0.25 : 1;
+      g.translate(W / 2, 300);
+      g.scale(pop, pop);
+      g.beginPath();
+      g.arc(0, -48, 44, 0, Math.PI * 2);
+      g.fillStyle = "#2f9e44";
+      g.fill();
+      g.lineWidth = 6;
+      g.strokeStyle = "#fff";
+      g.stroke();
+      g.lineCap = "round";
+      g.lineWidth = 11;
+      g.beginPath();
+      g.moveTo(-20, -48);
+      g.lineTo(-6, -33);
+      g.lineTo(22, -66);
+      g.stroke();
+      g.font = "bold 58px sans-serif";
+      g.textAlign = "center";
+      g.lineJoin = "round";
+      g.lineWidth = 12;
+      g.strokeStyle = "#fff";
+      g.strokeText("せいこう！", 0, 40);
+      g.lineWidth = 5;
+      g.strokeStyle = INK;
+      g.strokeText("せいこう！", 0, 40);
+      g.fillStyle = "#2f9e44";
+      g.fillText("せいこう！", 0, 40);
     } else if (f.kind === "glow") {
       // 画面の ふちが、ふわっと金色に(やさしく。ちかちかは しない)
       const grad = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.85);
@@ -616,10 +679,12 @@ function update(now) {
       r.notes.push(...bar.notes);
       // 矢印の ない拍(休み)にも、それ専用の音(敵が見せるときと、まねして おすときの、どちらにも)
       const taken = new Set(bar.notes.map((n) => n.beat));
+      const usesHalf = bar.notes.some((n) => n.beat % 1 !== 0); // この組に 半拍の 矢印が ないなら、半拍の 休みの音は なし
       for (let k = 0; k <= 6; k += 1) {
         const p = k * 0.5;
         if (taken.has(p)) continue;
         const kind = p === 3 ? "end" : p % 1 === 0 ? "beat" : "half";
+        if (kind === "half" && !usesHalf) continue;
         r.restCues.push({ time: callStart + p * seg.beat, kind, cued: false }, { time: respStart + p * seg.beat, kind, cued: false });
       }
       r.nextBar += 2;
@@ -1135,7 +1200,7 @@ function drawNextEnemyMini(r, now) {
   const x = 852;
   const y = 62;
   const w = 96;
-  const h = 116;
+  const h = wrong ? 142 : 116;
 
   g.save();
   g.fillStyle = "rgba(255,244,216,0.94)";
@@ -1185,6 +1250,12 @@ function drawNextEnemyMini(r, now) {
   g.font = "bold 11px sans-serif";
   g.fillStyle = wrong ? "#e8472f" : INK;
   g.fillText(wrong ? `${from}→${to}` : `体力 ${from}`, cx, y + 109, w - 10);
+  if (wrong) {
+    g.fillStyle = "#e8472f";
+    g.font = "bold 12px sans-serif";
+    g.fillText("パワーアップ！", cx, y + 126, w - 8);
+    g.fillText(`体力 ＋${Math.round(penaltyRate(enemy) * 100)}%`, cx, y + 140, w - 8);
+  }
   g.restore();
 }
 

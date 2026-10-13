@@ -14,7 +14,12 @@ export const HIT_DAMAGE = { perfect: 18, good: 12 }; // 敵に与えるダメー
 // リズムでのミスが、この数に なると、「料理が しっぱい」の見た目になる(手順ならべの まちがいとは、べつ)
 export const COOK_FAIL_MISSES = 3;
 export const QUIZ_MISS_DAMAGE = 8; // 手順ならべを まちがえたとき、主人公が うける ダメージ
-export const PENALTY = 1.15; // 手順えらびを まちがえたとき、次の敵の体力が ふえる倍率
+export const PENALTY = 0.15; // 手順えらびを まちがえるたびに、その敵の体力が ふえる 割合(敵ごとに recipes.js の penalty で かえられる)
+
+// その敵の、1回まちがえたときの ふえる割合
+export function penaltyRate(enemy) {
+  return enemy.penalty ?? PENALTY;
+}
 export const HIT_SCORE = { perfect: 100, good: 60 };
 
 // 矢印キーの対応。L=←, U=↑, R=→, D=↓
@@ -29,6 +34,7 @@ export function createState(recipe = DEFAULT_RECIPE) {
     recipe,
     tips: [], // 出てきた豆知識(結果画面で見返す)
     review: [], // 手順えらびの記録(結果画面で見返す)
+    wrong: {}, // 手順えらびを まちがえた 回数(敵のid → 回数)
     fails: {}, // 手順ならべを まちがえた敵(敵のid → true)。敵が強くなる(体力+15%・強い姿)
     cookFails: {}, // リズムで ミスが多くて、料理が しっぱいした手順(敵のid → true)。調理台の絵に出る
     enemyMisses: 0, // いまの敵との リズムでの ミスの数
@@ -130,7 +136,8 @@ export function answerQuiz(state, def, items, order, failKey) {
   if (def.main) state.steps[failKey] = quiz.rhythmLabels ?? quiz.steps.map((item) => item.label); // リズムの名前は、1つめの問題(ほんとうの やりかた)から
   if (!correct) {
     state.fails[failKey] = true;
-    state.enemyMax = Math.round(state.enemyMax * PENALTY);
+    state.wrong[failKey === "prep" ? enemyOf(state).id : failKey] = (state.wrong[failKey === "prep" ? enemyOf(state).id : failKey] ?? 0) + 1; // まちがえた 回数
+    state.enemyMax = Math.round(state.enemyMax * (1 + penaltyRate(enemyOf(state))));
     state.enemyHp = state.enemyMax;
     state.playerHp = Math.max(0, state.playerHp - QUIZ_MISS_DAMAGE); // 主人公も しっぱい(体力が へる)
   }

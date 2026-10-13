@@ -289,3 +289,5 @@ a.btn { display: inline-block; background: var(--sub); }
 .vol { display: grid; grid-template-columns: 6em 1fr 2.4em; align-items: center; gap: 10px; font-weight: bold; }
 .vol input[type="range"] { width: 100%; accent-color: var(--accent); }
 .vol output { text-align: right; font-variant-numeric: tabular-nums; }
+
+.quiz-power { margin: 4px 0 !important; padding: 4px 12px; font-size: 18px; font-weight: bold; color: #fff; background: var(--accent); border-radius: 12px; display: inline-block; }

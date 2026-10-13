@@ -30,9 +30,10 @@ const bell = (I, n, t, len, v = 0.1) => {
 };
 
 // 拍の クリック:表拍=高い、裏拍(半拍)=低い。矢印の「拍のものさし」と、おなじ。
-function ticks(I, t, beat) {
+function ticks(I, t, beat, half = true) {
   I.rtone(1568, t, 0.09, { type: "triangle", volume: 0.55 });
   I.rtone(1568, t, 0.04, { type: "square", volume: 0.16 });
+  if (!half) return; // 半拍の 矢印を つかわない 敵は、裏拍の 音を 鳴らさない
   I.rtone(587, t + beat / 2, 0.11, { type: "square", volume: 0.26 });
   I.rtone(294, t + beat / 2, 0.12, { type: "triangle", volume: 0.7 });
 }
@@ -91,7 +92,7 @@ function fight(t0, seg, i, I) {
   const phrase = FIGHT_SETS[fl.set][i % 8 < 4 ? "A" : "B"][ci];
   for (let b = 0; b < 4; b += 1) {
     const t = t0 + b * beat;
-    ticks(I, t, beat);
+    ticks(I, t, beat, seg.half !== false);
     hat(I, t, 0.1);
     hat(I, t + beat / 2, 0.05);
     if (b % 2 === 0) kick(I, t);
@@ -136,7 +137,7 @@ function boss(t0, seg, i, I) {
   const ci = i % 4;
   for (let b = 0; b < 4; b += 1) {
     const t = t0 + b * beat;
-    ticks(I, t, beat);
+    ticks(I, t, beat, seg.half !== false);
     kick(I, t, b % 2 === 0 ? 0.95 : 0.6);
     if (b % 2 === 1) {
       snare(I, t, 0.34);
