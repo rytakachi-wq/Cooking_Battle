@@ -31,7 +31,7 @@ const DISH = [
   { id: "butter", from: "dish_pan_raw", to: "dish_pan_golden", failTo: "fail_burnt" },
   { id: "syrup", from: "dish_plate_pancake", to: "dish_plate_syrup", failTo: "fail_syrup" },
 ];
-const DISH_SCALE = 1.9; // 絵が小さいので、拡大して つかう(ぜんぶ おなじ倍率で、大きさのくらべが そろう)
+const DISH_SCALE = 1.75; // 絵が小さいので、拡大して つかう(ぜんぶ おなじ倍率で、大きさのくらべが そろう)
 
 function putArt(g, name, alpha, dx = 0, scale = DISH_SCALE) {
   const img = ready(name);

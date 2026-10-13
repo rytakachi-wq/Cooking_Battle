@@ -21,7 +21,8 @@ let sources = []; // 予約したBGMの音。曲をとめるときに、ぜん�
 
 let offsetMs = 0;
 // 音の大きさ(0〜100)。BGM=曲、rhythm=リズムの音(拍の クリック・敵の音・休みの音)、se=こうかおん(名前は 仮)
-const vols = { bgm: 70, rhythm: 80, se: 80 };
+const DEFAULT_VOLS = { bgm: 70, rhythm: 80, se: 80 };
+const vols = { ...DEFAULT_VOLS };
 let bgmGain = null;
 let rhythmGain = null;
 let seGain = null;
@@ -163,8 +164,10 @@ export function watch(on) {
   alive();
 }
 
+let paused = false; // 画面が かくれているあいだ(音も 時計も 止める)
+
 function pump() {
-  if (!playing || !seg || !songBus) return;
+  if (paused || !playing || !seg || !songBus) return;
   if (watching && performance.now() - lastAlive > 3000) {
     stopSong();
     return;
@@ -357,33 +360,80 @@ export function playSe(name) {
 
 // 敵が「やって見せる」ときの音。矢印の向きで、音の高さがちがう。
 // t は、曲の頭からの秒数(画面の時計と おなじ)。
-const CUE_PITCH = { L: 392, U: 523, R: 659, D: 330 };
+// 表拍の矢印は、4つの音。← ピ  ↑ ポ  ↓ パ  → プ  /  裏拍(半拍)は、どの矢印も「コッ」
+function woodblock(when, vol = 1) {
+  tone(1000, when, 0.07, { type: "square", volume: 0.5 * vol, to: 760, out: rhythmGain });
+  tone(1900, when, 0.03, { type: "triangle", volume: 0.4 * vol, out: rhythmGain });
+  hiss(when, 0.025, { volume: 0.3 * vol, freq: 4200, out: rhythmGain });
+}
+
 export function cueAtSongTime(t, key, offbeat = false) {
   if (!ctx || !master) return;
   const when = ctx.currentTime + Math.max(0, t - songTime());
-  // 表拍は 高く、裏拍(半拍)は 1オクターブ 低く
-  const f = (CUE_PITCH[key] ?? 440) * (offbeat ? 0.5 : 2);
-  // 裏拍(半拍)の音は、低くても きこえるように、大きく・音色を はっきり
-  tone(f, when, offbeat ? 0.24 : 0.2, { type: offbeat ? "square" : "triangle", volume: offbeat ? 0.55 : 0.75, out: rhythmGain });
-  tone(f * 2, when, 0.08, { type: "sine", volume: offbeat ? 0.55 : 0.3, out: rhythmGain });
-  if (offbeat) tone(f * 4, when, 0.04, { type: "triangle", volume: 0.4, out: rhythmGain }); // 頭の クリック
+  if (offbeat) {
+    woodblock(when, 1.3);
+    return;
+  }
+  if (key === "L") {
+    // ピ:高くて 短い
+    tone(1760, when, 0.09, { type: "sine", volume: 0.8, to: 2000, out: rhythmGain });
+    tone(3520, when, 0.03, { type: "triangle", volume: 0.2, out: rhythmGain });
+  } else if (key === "U") {
+    // ポ:まるい 中高音
+    tone(1175, when, 0.13, { type: "sine", volume: 0.85, to: 1000, out: rhythmGain });
+    tone(2350, when, 0.04, { type: "sine", volume: 0.2, out: rhythmGain });
+  } else if (key === "D") {
+    // パ:かどの ある 音(ぱっと はじける)
+    tone(880, when, 0.1, { type: "triangle", volume: 0.8, out: rhythmGain });
+    hiss(when, 0.03, { volume: 0.5, freq: 3000, out: rhythmGain });
+  } else {
+    // プ:低めで ふくらむ 音
+    tone(659, when, 0.15, { type: "sine", volume: 0.95, to: 520, out: rhythmGain });
+    tone(330, when, 0.12, { type: "sine", volume: 0.4, out: rhythmGain });
+  }
 }
-
-// 矢印の ない拍(休み)の、専用の音。矢印の音(音程のある ピッ)とは ちがう、「コツ」「シャ」「ドン」の ような 音。
-//   beat=表拍の休み(木の ブロックの コツ)  half=裏拍の休み(シャカの シャ)  end=4拍めの休み(やわらかい ドン)
 export function restCueAtSongTime(t, kind) {
   if (!ctx || !master) return;
   const when = ctx.currentTime + Math.max(0, t - songTime());
-  // 休みの音は、矢印の音に まけないよう、大きく
   if (kind === "beat") {
+    // 表拍の休み:「チッ」
     tone(1046, when, 0.07, { type: "sine", volume: 1.4, to: 700, out: rhythmGain });
     tone(2093, when, 0.03, { type: "square", volume: 0.3, out: rhythmGain });
     hiss(when, 0.04, { volume: 0.6, freq: 5000, out: rhythmGain });
   } else if (kind === "half") {
-    hiss(when, 0.08, { volume: 0.9, freq: 3500, out: rhythmGain });
-    tone(520, when, 0.05, { type: "sine", volume: 0.7, out: rhythmGain });
+    // 裏拍の休み:やさしい「コッ」
+    woodblock(when, 0.55);
   } else {
-    tone(180, when, 0.22, { type: "sine", volume: 1.6, to: 90, out: rhythmGain });
-    tone(360, when, 0.05, { type: "triangle", volume: 0.5, out: rhythmGain });
+    // 小節の おわりの休み:低い音は 使わず、やわらかい 高めの音
+    tone(784, when, 0.2, { type: "sine", volume: 1.0, to: 700, out: rhythmGain });
+    tone(1568, when, 0.05, { type: "triangle", volume: 0.3, out: rhythmGain });
   }
+}
+
+// 設定を 初期に もどす(音の大きさ・タイミング。おと ON/OFF は そのまま)
+export function resetSettings({ offset = true } = {}) {
+  Object.assign(vols, DEFAULT_VOLS);
+  if (offset) offsetMs = 0;
+  applyVolumes();
+  saveSettings();
+}
+
+// 画面が かくれたとき:音を とめる(時計も とまるので、戻ってきたら つづきから)
+export function pauseAudio() {
+  paused = true;
+  if (ctx && ctx.state === "running") ctx.suspend();
+}
+
+// 戻ってきたとき:音を うごかしなおし、時計の ずれを 測りなおす
+export async function resumeAudio() {
+  if (ctx) {
+    try {
+      await ctx.resume();
+    } catch {
+      // 再開できなくても、ゲームは つづける
+    }
+    haveDrift = false;
+  }
+  paused = false;
+  alive();
 }

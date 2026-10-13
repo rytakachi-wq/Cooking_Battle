@@ -106,7 +106,13 @@ function homeOf(q, card) {
 }
 
 // ---- ポインタ(マウス・タッチ) ----
+// 答えあわせのあと、「つぎへ」を出して よい とき
+export function nextReady(q) {
+  return q.stage === "verdict" && q.answered && q.lastNow - (q.verdictAt ?? q.lastNow) > 0.4 && (!q.wrong || q.reveal);
+}
+
 export function pointerDown(q, x, y) {
+  if (nextReady(q) && inside(q.geo.ok, x, y)) return { type: "next" };
   if (q.stage !== "arrange") return null;
   if (filled(q) >= q.n - 1 && inside(q.geo.ok, x, y)) {
     fillLast(q);
@@ -253,6 +259,26 @@ function card(g, q, c, now) {
   g.textBaseline = "alphabetic";
 }
 
+function button(g, b, label, now) {
+  const pulse = 1 + Math.sin(now * 5) * 0.02;
+  g.save();
+  g.translate(b.x + b.w / 2, b.y + b.h / 2);
+  g.scale(pulse, pulse);
+  g.fillStyle = "#ff8a3d";
+  g.strokeStyle = INK;
+  g.lineWidth = 4;
+  rr(g, -b.w / 2, -b.h / 2, b.w, b.h, 36);
+  g.fill();
+  g.stroke();
+  g.fillStyle = INK;
+  g.font = `bold ${label.length > 5 ? 20 : 24}px sans-serif`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(label, 0, 1);
+  g.restore();
+  g.textBaseline = "alphabetic";
+}
+
 export function draw(g, q, now) {
   const { geo, n } = q;
   // わく
@@ -337,25 +363,7 @@ export function draw(g, q, now) {
     });
   }
 
-  // 「けってい」ボタン:のこり1まい以下になったら
-  if (q.stage === "arrange" && filled(q) >= n - 1) {
-    const b = geo.ok;
-    const pulse = 1 + Math.sin(now * 5) * 0.02;
-    g.save();
-    g.translate(b.x + b.w / 2, b.y + b.h / 2);
-    g.scale(pulse, pulse);
-    g.fillStyle = "#ff8a3d";
-    g.strokeStyle = INK;
-    g.lineWidth = 4;
-    rr(g, -b.w / 2, -b.h / 2, b.w, b.h, 36);
-    g.fill();
-    g.stroke();
-    g.fillStyle = INK;
-    g.font = "bold 24px sans-serif";
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    g.fillText("けってい！", 0, 1);
-    g.restore();
-    g.textBaseline = "alphabetic";
-  }
+  // 「けってい」ボタン:のこり1まい以下になったら。答えあわせの あとは、同じ場所に「つぎへ」
+  if (q.stage === "arrange" && filled(q) >= n - 1) button(g, geo.ok, "けってい！", now);
+  else if (nextReady(q)) button(g, geo.ok, q.nextLabel ?? "つぎへ", now);
 }

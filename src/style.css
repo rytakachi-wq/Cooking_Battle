@@ -291,3 +291,9 @@ a.btn { display: inline-block; background: var(--sub); }
 .vol output { text-align: right; font-variant-numeric: tabular-nums; }
 
 .quiz-power { margin: 4px 0 !important; padding: 4px 12px; font-size: 18px; font-weight: bold; color: #fff; background: var(--accent); border-radius: 12px; display: inline-block; }
+
+.vol { grid-template-columns: 6.4em 1fr 4.6em; }
+.dialog { width: min(92vw, 460px); }
+.dialog .note { margin: 0 0 14px; }
+.dialog .buttons { justify-content: space-between; }
+.vol input:disabled { opacity: 0.45; }

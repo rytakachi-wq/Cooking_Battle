@@ -20,12 +20,12 @@ import {
   registerMiss,
 } from "./game.js";
 import { penaltyRate } from "./game.js";
-import { activeSources, alive, getVolume, setVolume, cueAtSongTime, restCueAtSongTime, playTrack, trackName, watch, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
+import { activeSources, alive, getVolume, pauseAudio, resetSettings, resumeAudio, setVolume, cueAtSongTime, restCueAtSongTime, playTrack, trackName, watch, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import * as Q from "./quiz.js";
 import { drawActionFx, drawQuizScene } from "./scenes.js";
 import { ENEMY_FX, STATION, drawFailStamp, drawStation, useArt } from "./station.js";
-import { loadStats, recordPlay } from "./storage.js";
+import { clearCheckpoint, loadCheckpoint, loadStats, recordPlay, saveCheckpoint } from "./storage.js";
 
 const W = 960;
 const H = 540;
@@ -117,6 +117,7 @@ function showCover() {
     ? `さいこうとくてん ${stats.bestScore}　クリア ${stats.wins}回${stats.bestRank ? `　さいこうランク ${stats.bestRank}` : ""}`
     : "";
   showMute();
+  $("btn-continue").hidden = !loadCheckpoint();
   show("cover");
   playMenuTrack("cover", 108);
 }
@@ -125,7 +126,7 @@ function showCover() {
 let run = null;
 let frame = 0;
 
-function begin() {
+function begin(cp = null) {
   if (tut) {
     cancelAnimationFrame(tutFrame);
     tut = null;
@@ -135,8 +136,19 @@ function begin() {
   startSong();
   playTrack("quiz", 100, songTime() + 0.3);
   watch(true);
+  const state = createState();
+  if (cp) {
+    // 「つづきから」:たおした敵まで すすんだ記録を もどす
+    Object.assign(state, cp.state);
+    state.recipe = DEFAULT_RECIPE;
+    state.combo = 0;
+    state.enemyIndex = cp.enemyIndex;
+    state.enemyHp = state.recipe.enemies[cp.enemyIndex].hp;
+    state.enemyMax = state.enemyHp;
+    state.enemyMisses = 0;
+  }
   run = {
-    state: createState(),
+    state,
     notes: [],
     restCues: [], // 矢印の ない拍の、専用の音
     seg: null, // いまの敵の曲({t0, beat, bar})
@@ -167,12 +179,19 @@ function begin() {
   show("play");
   const first = enemyOf(run.state);
   run.quizQueue = [
-    ...quizzesFor(DEFAULT_RECIPE.prep.step, DEFAULT_RECIPE.prep.quizzes, "prep"),
+    ...(cp ? [] : quizzesFor(DEFAULT_RECIPE.prep.step, DEFAULT_RECIPE.prep.quizzes, "prep")),
     ...quizzesFor(first.step, first.quizzes, first.id),
   ];
   nextQuiz();
   cancelAnimationFrame(frame);
   frame = requestAnimationFrame(tick);
+}
+
+// 敵を たおして つぎの手順に すすむところで、記録する(「つづきから」)
+function saveProgress() {
+  const s = run.state;
+  const { recipe, ...rest } = s;
+  saveCheckpoint({ enemyIndex: s.enemyIndex, state: JSON.parse(JSON.stringify(rest)) });
 }
 
 function quitToCover() {
@@ -245,6 +264,7 @@ function openQuiz(def, failKey, now = songTime(), left = 1) {
   for (let tries = 0; tries < 8 && items.every((item, i) => item.rank === i); tries += 1) items = shuffle(ranked);
   run.quiz = Q.createQuiz(def, failKey, items);
   run.quiz.variant = def.variant ?? 0;
+  run.quiz.nextLabel = left === 1 ? "たたかう！" : "つぎへ";
   run.banner = { text: "", from: 0, until: 0 };
   $("quiz-step").textContent = def.step;
   $("quiz-q").textContent = def.quiz.question;
@@ -286,7 +306,10 @@ function handleQuizEvent(ev, now = songTime()) {
     playSe("place");
     startAction(q.items[ev.item].rank, now); // おいた手順を、すぐ やって見せる
   } else if (ev.type === "removed") playSe("remove");
-  else if (ev.type === "confirm") {
+  else if (ev.type === "next") {
+    playSe("decide");
+    endQuiz(now);
+  } else if (ev.type === "confirm") {
     playSe("decide");
     startDemo(now);
   }
@@ -347,6 +370,7 @@ function judgeQuiz(now) {
   q.wrong = !result.correct;
   q.revealAt = now + 0.55;
   run.action = null;
+  run.failLook = !result.correct; // まちがえた見た目は、正解するまで 次の問題にも つづく
   if (!result.correct) {
     setHero("damage", now, 1.6); // 主人公も しっぱい
     run.stamp = { from: now, until: now + 2.4 };
@@ -380,6 +404,7 @@ function endQuiz(now = songTime()) {
     return;
   }
   run.phase = "fight";
+  run.failLook = false;
   run.lastPattern = -1;
   // その敵のテンポの曲を はじめる。矢印の拍は、この曲の小節に そろえる(1小節めは じゅんびの小節)
   const foe = enemyOf(run.state);
@@ -427,6 +452,7 @@ function showTip(now) {
 }
 
 function finish(result, now) {
+  clearCheckpoint(); // おわった あそびは、つづきから できない
   run.result = result;
   run.phase = "end";
   run.phaseUntil = now + (result === "win" ? TIP_TIME + 0.4 : 2.4);
@@ -716,6 +742,7 @@ function update(now) {
     r.tip = null;
     const enemy = enemyOf(r.state);
     run.quizQueue = quizzesFor(enemy.step, enemy.quizzes, enemy.id);
+    saveProgress();
     nextQuiz(now);
   } else if (r.phase === "end" && now >= r.phaseUntil) {
     showResult();
@@ -1400,7 +1427,12 @@ function draw(now) {
   const inQuiz = r.phase === "quiz" && r.quiz;
   if (inQuiz) {
     drawQuizScene(g, r.quiz.failKey, now);
-  } else drawStation(g, s.enemyIndex, r.shown, now, s.cookFails);
+  } else {
+    g.save();
+    g.translate(0, 24); // 注文カードと かさならないよう、料理を 少し下げる
+    drawStation(g, s.enemyIndex, r.shown, now, s.cookFails);
+    g.restore();
+  }
 
   // 主人公:こうげきで前に出る
   const lunge = lungeAmount(now, r);
@@ -1409,10 +1441,22 @@ function draw(now) {
   g.translate(heroX, 395);
   g.rotate(-0.1 * lunge);
   g.translate(-heroX, -395);
-  drawSprite(`hero_${r.heroPose}`, heroX, 395 + (r.heroPose === "lose" ? 10 : 0), SCALE.hero, {
-    dy: r.heroPose === "normal" ? bounce : 0,
+  const heroPose = inQuiz && r.failLook && r.heroPose === "normal" ? "damage" : r.heroPose;
+  drawSprite(`hero_${heroPose}`, heroX, 395 + (heroPose === "lose" ? 10 : 0), SCALE.hero, {
+    dy: heroPose === "normal" ? bounce : 0,
   });
   g.restore();
+  if (inQuiz && r.failLook) {
+    // 前の問題を まちがえたまま:「しっぱい」のしるしを つけておく(正解すると きえる)
+    const stamp = images.ui_stamp_fail;
+    if (stamp?.complete && stamp.naturalWidth) {
+      g.save();
+      g.translate(215, 255);
+      g.rotate(-0.15);
+      g.drawImage(stamp, -38, -33, 76, 66);
+      g.restore();
+    }
+  }
 
   if (!inQuiz) {
     // 敵:ひるむと白くひかり、うしろへ下がる
@@ -1830,6 +1874,11 @@ window.addEventListener("keydown", (event) => {
     quitToCover();
     return;
   }
+  if (run?.paused) {
+    event.preventDefault();
+    resumeGame();
+    return;
+  }
   if (event.code === "KeyM" && !event.repeat) {
     toggleMute();
     return;
@@ -1865,6 +1914,7 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("pointerdown", () => {
   unlock();
   syncMenuMusic();
+  if (run?.paused) resumeGame();
 });
 
 // どのボタンを おしても、おとが ならす
@@ -1880,63 +1930,88 @@ document.addEventListener(
 );
 $("btn-start").addEventListener("click", () => {
   unlock();
+  if (loadCheckpoint() && !window.confirm("つづきの記録が 消えるけど、はじめから あそぶ？")) return;
+  clearCheckpoint();
   begin();
 });
-$("btn-again").addEventListener("click", () => begin());
+$("btn-continue").addEventListener("click", () => {
+  unlock();
+  const cp = loadCheckpoint();
+  if (cp) begin(cp);
+  else showCover();
+});
+$("btn-again").addEventListener("click", () => {
+  clearCheckpoint();
+  begin();
+});
 $("btn-cover").addEventListener("click", () => showCover());
 
-// おとの せってい(BGM・リズム・こうかおん。0〜100)
+// せってい(BGM・リズム・こうかおん=0〜100、タイミング=−200〜200ms)
 const SOUND_KINDS = ["bgm", "rhythm", "se"];
+const offsetText = (ms) => `${ms > 0 ? "+" : ""}${ms}ms`;
 function syncSoundDialog() {
   for (const kind of SOUND_KINDS) {
     const input = $(`vol-${kind}`);
     input.value = String(getVolume(kind));
     input.nextElementSibling.textContent = input.value;
   }
+  const off = $("set-offset");
+  off.value = String(getOffset());
+  off.nextElementSibling.textContent = offsetText(getOffset());
+  // 戦いの途中で かえると、曲と矢印が ずれるので、表紙・結果だけで かえられる
+  off.disabled = !!run;
+  $("offset-note").textContent = run ? "タイミングは、表紙で かえられるよ。" : "タイミング:＋で 矢印が はやく、−で おそく なるよ。";
 }
 function openSound() {
   unlock();
   syncSoundDialog();
   $("dlg-sound").showModal();
 }
-for (const kind of SOUND_KINDS) {
-  const input = $(`vol-${kind}`);
-  input.addEventListener("input", () => {
-    setVolume(kind, Number(input.value));
-    input.nextElementSibling.textContent = input.value;
-    if (kind === "se") playSe("place");
-  });
-  // マウスのホイールでも上下(1めもりずつ。Shift を おすと 10ずつ)
+function wheelStep(input, step, big, onInput) {
   input.addEventListener(
     "wheel",
     (event) => {
+      if (input.disabled) return;
       event.preventDefault();
-      const step = event.shiftKey ? 10 : 2;
-      input.value = String(Math.max(0, Math.min(100, Number(input.value) + (event.deltaY < 0 ? step : -step))));
-      input.dispatchEvent(new Event("input"));
+      const d = event.shiftKey ? big : step;
+      const lo = Number(input.min);
+      const hi = Number(input.max);
+      input.value = String(Math.max(lo, Math.min(hi, Number(input.value) + (event.deltaY < 0 ? d : -d))));
+      onInput();
     },
     { passive: false },
   );
 }
+for (const kind of SOUND_KINDS) {
+  const input = $(`vol-${kind}`);
+  const apply = () => {
+    setVolume(kind, Number(input.value));
+    input.nextElementSibling.textContent = input.value;
+    if (kind === "se") playSe("place");
+  };
+  input.addEventListener("input", apply);
+  wheelStep(input, 2, 10, apply); // マウスのホイールでも上下(Shift で 10ずつ)
+}
+{
+  const off = $("set-offset");
+  const apply = () => {
+    setOffset(Number(off.value));
+    off.nextElementSibling.textContent = offsetText(getOffset());
+    playSe("place");
+  };
+  off.addEventListener("input", apply);
+  wheelStep(off, 10, 50, apply);
+}
+$("btn-sound-reset").addEventListener("click", () => {
+  resetSettings({ offset: !run });
+  syncSoundDialog();
+});
 $("btn-sound").addEventListener("click", openSound);
 $("btn-sound-play").addEventListener("click", (event) => {
   openSound();
   event.currentTarget.blur();
 });
 $("btn-sound-close").addEventListener("click", () => $("dlg-sound").close());
-function showOffset() {
-  const ms = getOffset();
-  $("offset-value").textContent = `${ms > 0 ? "+" : ""}${ms}ms`;
-}
-$("btn-offset-up").addEventListener("click", () => {
-  setOffset(getOffset() + 10);
-  showOffset();
-});
-$("btn-offset-down").addEventListener("click", () => {
-  setOffset(getOffset() - 10);
-  showOffset();
-});
-showOffset();
 
 $("btn-mute").addEventListener("click", toggleMute);
 $("btn-mute-play").addEventListener("click", (event) => {
@@ -1948,13 +2023,12 @@ $("btn-tutorial").addEventListener("click", startTutorial);
 $("tut-next").addEventListener("click", () => tutGo(1));
 $("tut-prev").addEventListener("click", () => tutGo(-1));
 $("tut-skip").addEventListener("click", endTutorial);
-$("btn-quiz-next").addEventListener("click", () => endQuiz());
 function canvasPoint(event) {
   const rect = canvas.getBoundingClientRect();
   return [((event.clientX - rect.left) * W) / rect.width, ((event.clientY - rect.top) * H) / rect.height];
 }
 canvas.addEventListener("pointerdown", (event) => {
-  if (!run || run.phase !== "quiz" || !run.quiz) return;
+  if (!run || run.paused || run.phase !== "quiz" || !run.quiz) return;
   unlock();
   if (run.quiz.stage === "demo") {
     skipDemo();
@@ -1990,13 +2064,42 @@ canvas.addEventListener("pointercancel", () => {
   }
 });
 
-// 画面がかくれたら、ゲームをやめて、BGMも止める(のこらないように)
+// ほかの画面に行ったら一時停止。もどってきて、クリックかキーで つづきから(はじめには もどらない)
+function showPause() {
+  if (!run) return;
+  draw(run.pausedAt);
+  g.save();
+  g.fillStyle = "rgba(74,44,23,0.55)";
+  g.fillRect(0, 0, W, H);
+  g.textAlign = "center";
+  outlined("いったん ストップ", W / 2, 240, 56, "#fff4d8");
+  outlined("クリックか キーで つづけるよ", W / 2, 300, 28, "#fff4d8");
+  g.restore();
+}
+
+async function resumeGame() {
+  if (!run?.paused || run.resuming) return;
+  run.resuming = true;
+  await resumeAudio();
+  if (!run) return;
+  run.paused = false;
+  run.resuming = false;
+  alive();
+  frame = requestAnimationFrame(tick);
+}
+
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    if (run) quitToCover();
-    stopSong();
+    if (run && !run.paused) {
+      run.paused = true;
+      run.pausedAt = songTime();
+      cancelAnimationFrame(frame);
+    }
+    pauseAudio();
+  } else if (run?.paused) {
+    showPause();
   } else {
-    syncMenuMusic();
+    resumeAudio().then(syncMenuMusic);
   }
 });
 window.addEventListener("pagehide", stopSong);

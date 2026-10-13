@@ -44,3 +44,31 @@ export function recordPlay({ score, won, rank }) {
   }
   return { isRecord };
 }
+
+// 「つづきから」:敵を たおして、つぎの敵の手順に すすむところで 保存する(端末内だけ)
+const CP_KEY = "cookingBattle.checkpoint";
+
+export function saveCheckpoint(data) {
+  try {
+    localStorage.setItem(CP_KEY, JSON.stringify(data));
+  } catch {
+    // 保存できなくても、遊びは つづけられる。
+  }
+}
+
+export function loadCheckpoint() {
+  try {
+    const data = JSON.parse(localStorage.getItem(CP_KEY) ?? "null");
+    return data && Number.isInteger(data.enemyIndex) && data.enemyIndex > 0 && data.state ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearCheckpoint() {
+  try {
+    localStorage.removeItem(CP_KEY);
+  } catch {
+    // 消せなくても、遊びには かかわらない。
+  }
+}
