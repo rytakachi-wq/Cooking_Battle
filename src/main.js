@@ -441,7 +441,6 @@ function showReview(s) {
     li.className = item.correct ? "ok" : "ng";
     add(li, "strong", "", `${item.correct ? "◎ せいかい" : "× まちがい"}　${item.step}`);
     add(li, "p", "rv-q", item.question ?? "");
-    if (!item.correct) add(li, "p", "rv-fail", item.fail);
     add(li, "p", "rv-label", item.correct ? "じゅんばん" : "正しい じゅんばん");
     const ol = add(li, "ol", "rv-steps", "");
     item.answer.forEach((text) => add(ol, "li", "", text));
@@ -736,6 +735,11 @@ function update(now) {
     }
     for (const note of r.notes) {
       // 敵が やって見せる時刻に、音を出して、敵が動く
+      // まねして おす番(主人公の番)でも、裏拍の矢印の ところで「コッ」を 鳴らす(裏拍を 数えやすいように)
+      if (note.status === "pending" && !note.respCued && note.beat % 1 !== 0 && note.time - now < 0.05) {
+        note.respCued = true;
+        if (note.time - now > -0.1) cueAtSongTime(note.time, note.key, true);
+      }
       if (note.status === "pending" && !note.cued && note.callAt - now < 0.05) {
         note.cued = true;
         if (note.callAt - now > -0.3) {
@@ -1241,9 +1245,9 @@ function drawNextEnemyMini(r, now) {
   const q = r.quiz;
   if (!q) return;
   const enemy = enemyOf(r.state);
-  const answered = q.answered && q.result;
-  const wrong = answered && !q.result.correct;
-  const e = wrong ? Math.min(1, Math.max(0, now - (q.answeredAt ?? now)) / 0.7) : 0;
+  const justWrong = q.answered && q.result && !q.result.correct;
+  const wrong = r.state.fails[enemy.id] === true; // まちがえた敵は、次の問題でも 強い姿・ふえた体力のまま
+  const e = wrong ? (justWrong ? Math.min(1, Math.max(0, now - (q.answeredAt ?? now)) / 0.7) : 1) : 0;
   const ease = 1 - (1 - e) * (1 - e);
   const x = 852;
   const y = 62;
@@ -1302,7 +1306,7 @@ function drawNextEnemyMini(r, now) {
     g.fillStyle = "#e8472f";
     g.font = "bold 12px sans-serif";
     g.fillText("パワーアップ！", cx, y + 126, w - 8);
-    g.fillText(`体力 ＋${Math.round(penaltyRate(enemy) * 100)}%`, cx, y + 140, w - 8);
+    g.fillText(`体力 ＋${Math.round((to / from - 1) * 100)}%`, cx, y + 140, w - 8);
   }
   g.restore();
 }
@@ -1471,9 +1475,9 @@ function draw(now) {
     // 前の問題を まちがえた「しっぱい料理」を、正解するまで 次の問題にも 出しておく
     const fimg = images[FAIL_ART[r.failKey]];
     if (fimg?.complete && fimg.naturalWidth) {
-      const fw = fimg.naturalWidth * 1.3;
-      const fh = fimg.naturalHeight * 1.3;
-      g.drawImage(fimg, 480 - fw / 2, 372 - fh, fw, fh); // 調理台の まんなか(ボウルの上)に のせる
+      const fw = fimg.naturalWidth * 1.1;
+      const fh = fimg.naturalHeight * 1.1;
+      g.drawImage(fimg, 255 - fw / 2, 392 - fh, fw, fh); // 主人公の となり(道具・材料・カードと かさならない場所)
     }
   }
 
