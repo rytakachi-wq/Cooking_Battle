@@ -48,7 +48,7 @@ const POSES = {
   enemy: ["normal", "attack", "damage", "down"],
 };
 const FAIL_ART = { egg: "fail_shells", milk: "fail_milk", mix: "fail_lumps", butter: "fail_burnt", syrup: "fail_syrup" };
-const SCALE = { hero: 0.82, egg: 1.6, milk: 1.4, mix: 1.5, butter: 1.9, syrup: 1.75 };
+const SCALE = { hero: 0.82, egg: 1.6, milk: 1.5, mix: 1.5, butter: 1.9, syrup: 1.75 };
 const images = {};
 function loadImages() {
   const jobs = [];
@@ -482,14 +482,13 @@ function finish(result, now) {
 function onMiss(note, now) {
   note.status = "miss";
   const enemyId = enemyOf(run.state).id;
-  const wasFailed = run.state.cookFails[enemyId] === true;
   const dead = registerMiss(run.state);
   popup("MISS", "#7a7a7a", now);
   setHero("damage", now, 0.45);
   setEnemy("attack", now, 0.45);
   playSe("miss");
   // ミスが たまると、料理が しっぱいした見た目になる(手順ならべの まちがいとは、べつ)
-  if (!wasFailed && run.state.cookFails[enemyId]) run.stamp = { from: now, until: now + 2.4 };
+  
   if (dead) finish("lose", now);
   else defeatIfDone(now, note.bar, false);
 }
@@ -1469,9 +1468,9 @@ function draw(now) {
     // 前の問題を まちがえた「しっぱい料理」を、正解するまで 次の問題にも 出しておく
     const fimg = images[FAIL_ART[r.failKey]];
     if (fimg?.complete && fimg.naturalWidth) {
-      const fw = fimg.naturalWidth * 1.1;
-      const fh = fimg.naturalHeight * 1.1;
-      g.drawImage(fimg, 255 - fw / 2, 418 - fh, fw, fh); // 主人公の となり(道具・材料・カードと かさならない場所)
+      const fw = fimg.naturalWidth * 0.8;
+      const fh = fimg.naturalHeight * 0.8;
+      g.drawImage(fimg, 480 - fw / 2, 374 - fh, fw, fh); // 料理(ボウル・フライパン・お皿)の 中に 入れる
     }
   }
 
