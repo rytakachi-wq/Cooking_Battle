@@ -1,0 +1,114 @@
+<title>曲づくりの手引き</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&family=BIZ+UDPGothic:wght@400;700&display=swap">
+<style>
+/* 配置:1本の 読みもの。条件の 表は 横に はみ出すときだけ 表の中で スクロール */
+:root {
+  --bg: #fdfaf4; --panel: #ffffff; --ink: #3b2a1e; --ink-soft: #7a6755; --line: #e6dccb;
+  --accent: #e0561f; --accent-ink: #ffffff; --mark: #fff0c9;
+  --font-display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic UI", sans-serif;
+  --font-body: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+  --font-code: ui-monospace, "SF Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #1f1812; --panel: #2a2118; --ink: #f3e8d8; --ink-soft: #b9a68f; --line: #44372a; --accent: #ff8a52; --accent-ink: #2a1408; --mark: #4a3a1c; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #1f1812; --panel: #2a2118; --ink: #f3e8d8; --ink-soft: #b9a68f; --line: #44372a; --accent: #ff8a52; --accent-ink: #2a1408; --mark: #4a3a1c; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.85 var(--font-body); padding-inline: 16px; padding-block: 28px 64px; }
+main { max-width: 860px; margin: 0 auto; display: grid; gap: 26px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.35; margin: 0; }
+h1 { font-size: clamp(26px, 5vw, 36px); font-weight: 900; }
+h2 { font-size: 20px; font-weight: 900; padding-top: 6px; }
+h3 { font-size: 16px; margin-top: 12px; }
+p { margin: 6px 0; max-width: 62em; }
+code { font: 13px var(--font-code); background: var(--mark); padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+.box ul, .box ol { margin: 6px 0; padding-left: 1.4em; }
+.box li { margin: 4px 0; }
+.lead { font-size: 16px; }
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+th { font: 700 12px var(--font-display); letter-spacing: 0.04em; color: var(--ink-soft); background: var(--mark); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.must { border-color: var(--accent); }
+.tag { font: 700 12px var(--font-display); background: var(--accent); color: var(--accent-ink); border-radius: 6px; padding: 1px 8px; margin-right: 6px; }
+</style>
+<main>
+  <header>
+    <h1>曲づくりの手引き</h1>
+    <p class="lead">自分で作った曲を ゲームに 入れるための 条件です。決まりを 守れば、ファイルを 置いて 名前を 書くだけで 鳴ります。曲が ない場面は、これまでの コードで 作った 曲が 鳴ります。</p>
+  </header>
+
+  <section class="box must">
+    <h2>これだけは 守って ください</h2>
+    <ul>
+      <li><b>テンポ(BPM)は 最後まで 一定</b>。拍子は 4分の4 拍子。</li>
+      <li><b>1拍めが ファイルの 先頭(0秒)</b> から 始まる(曲の 頭に 無音を 入れない)。無音が あるときは、その 秒数を 教えて ください(<code>lead</code>)。</li>
+      <li><b>つなぎ目の ない ループ</b>。長さは <b>小節の 整数ばい</b>(8小節か 16小節が おすすめ)。曲の おわりが そのまま 頭に もどります。</li>
+      <li>形式は <b>wav か ogg</b> が おすすめ(mp3 も 使えますが、ループの つなぎ目に すき間が 出ることが あります)。ステレオ・44.1kHz。</li>
+      <li>音の 大きさは、<b>ピークが −1dB 以下</b>で、まんなかより 少し 小さめ。ゲームの 効果音と 矢印の 音が 上に のります。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>1小節の 長さ</h2>
+    <p>1小節 ＝ 240 ÷ BPM 秒。16小節の 長さの めやすです。</p>
+    <div class="tw"><table>
+      <thead><tr><th>BPM</th><th>1小節</th><th>8小節</th><th>16小節</th></tr></thead>
+      <tbody>
+        <tr><td class="n">108</td><td class="n">2.222秒</td><td class="n">17.8秒</td><td class="n">35.6秒</td></tr>
+        <tr><td class="n">110</td><td class="n">2.182秒</td><td class="n">17.5秒</td><td class="n">34.9秒</td></tr>
+        <tr><td class="n">113</td><td class="n">2.124秒</td><td class="n">17.0秒</td><td class="n">34.0秒</td></tr>
+        <tr><td class="n">116</td><td class="n">2.069秒</td><td class="n">16.6秒</td><td class="n">33.1秒</td></tr>
+        <tr><td class="n">119</td><td class="n">2.017秒</td><td class="n">16.1秒</td><td class="n">32.3秒</td></tr>
+        <tr><td class="n">122</td><td class="n">1.967秒</td><td class="n">15.7秒</td><td class="n">31.5秒</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>作る 曲の 一覧</h2>
+    <p>ねらいは「<b>明るく 元気</b>」で、戦いは 敵が すすむほど「<b>だんだん 盛り上がる</b>」(音の 数・ドラムの 勢い・メロディの 高さ)。テンポは 下の 数字に あわせてください(ちがう テンポで 作った ときは、そのテンポを 教えて ください。矢印の 拍は 曲の テンポに あわせます)。</p>
+    <div class="tw"><table>
+      <thead><tr><th>キー</th><th>場面</th><th>BPM</th><th>長さ</th><th>ようす</th></tr></thead>
+      <tbody>
+        <tr><td><code>cover</code></td><td>表紙・あそびかた</td><td class="n">108</td><td class="n">8〜16小節</td><td>明るく 元気。タイトルに あう わくわく感</td></tr>
+        <tr><td><code>quiz</code></td><td>手順ならべ</td><td class="n">100</td><td class="n">8〜16小節</td><td>考える じゃまを しない、軽やかで やさしい</td></tr>
+        <tr><td><code>fight_egg</code></td><td>戦い：卵</td><td class="n">110</td><td class="n">16小節</td><td>いちばん やさしい。音を 少なめに、元気</td></tr>
+        <tr><td><code>fight_milk</code></td><td>戦い：牛乳</td><td class="n">113</td><td class="n">16小節</td><td>少し にぎやか。ベースが 動き出す</td></tr>
+        <tr><td><code>fight_mix</code></td><td>戦い：ホットケーキミックス</td><td class="n">116</td><td class="n">16小節</td><td>ドラムが 本格的に。メロディが 高くなる</td></tr>
+        <tr><td><code>fight_butter</code></td><td>戦い：バター</td><td class="n">119</td><td class="n">16小節</td><td>音が ふえる。あつい、勢いが ある</td></tr>
+        <tr><td><code>boss_syrup</code></td><td>戦い：メープルシロップ(ボス)</td><td class="n">122</td><td class="n">16小節</td><td>いちばん はげしい。ドラマチック、クライマックス</td></tr>
+        <tr><td><code>result_win</code></td><td>結果：かち</td><td class="n">120</td><td class="n">8小節</td><td>お祝い。ファンファーレで 始まって うきうき</td></tr>
+        <tr><td><code>result_lose</code></td><td>結果：まけ</td><td class="n">90</td><td class="n">8小節</td><td>やさしく はげます(ドラムなし)</td></tr>
+      </tbody>
+    </table></div>
+    <p>コンソメスープを 入れる ときは、戦いの 曲が 5つ 増えます(<code>fight_onion</code> 110、<code>fight_carrot</code> 113、<code>fight_cabbage</code> 116、<code>fight_consomme</code> 119、<code>boss_saltpepper</code> 122)。</p>
+  </section>
+
+  <section class="box">
+    <h2>戦いの 曲の つくり方の ヒント</h2>
+    <ul>
+      <li><b>ループの 最初の 1小節</b>は「じゅんびの 小節」です。ここでは 矢印が 出ません。そのあと、2小節で 1組(敵が やって見せる → まねして 押す)を くりかえします。ですので 曲は <b>1小節ごとの まとまり</b> で 作ると 合います。</li>
+      <li>矢印の 音は <b>ポ(約1200Hz)</b>・<b>プ(約660Hz)</b>・<b>コッ(約1000Hzの 木の 音)</b>。BGMは この 音域に <b>大きな 音を 重ねない</b>と、聞こえやすく なります。</li>
+      <li><b>拍を 数える クリック音は 入れなくて 大丈夫</b>です。ゲームが 表拍の クリックを 鳴らします(「リズム」の つまみで 小さく・消せます)。</li>
+      <li>裏拍(拍の あいだ)を 強調しすぎる リズムは 避けると、「コッ」が 裏拍の 合図として 聞き分けられます。</li>
+    </ul>
+  </section>
+
+  <section class="box">
+    <h2>ゲームに 入れる 方法</h2>
+    <ol>
+      <li>曲の ファイルを <code>assets/bgm/</code> に 置く(例：<code>fight_egg.ogg</code>)。</li>
+      <li><code>src/bgm_files.js</code> の 同じキーの <code>file</code> に ファイル名を 書く。<code>bpm</code> と <code>lead</code> も 合わせる。</li>
+      <li>ファイルを 私に 渡して もらえれば、こちらで 入れて 確かめます。タイミングが ずれて 聞こえるときは、ゲームの「せってい」の タイミングでも 調整できます。</li>
+    </ol>
+  </section>
+
+  <section class="box">
+    <h2>著作権</h2>
+    <p>他の曲や ゲームの 曲に 似せない。音楽AIで 作ったときは、その サービスの 利用条件(公開・ゲームへの 使用が 許されているか)を 確かめて ください。</p>
+  </section>
+</main>

@@ -273,4 +273,10 @@ function resultLose(t0, seg, i, I) {
   });
 }
 
+// 自分で作った曲を つかうとき:曲は ファイルが 鳴らすので、拍の クリック(リズムの つまみ)だけ ここで 鳴らす
+function ticksOnly(t0, seg, i, I) {
+  for (let b = 0; b < 4; b += 1) ticks(I, t0 + b * seg.beat, seg.beat);
+}
+
+export const TICKS_ONLY = ticksOnly;
 export const TRACKS = { cover, quiz, fight, boss, result_win: resultWin, result_lose: resultLose };

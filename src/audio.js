@@ -2,7 +2,8 @@
 // ブラウザの決まりで、画面を1回さわるまでは音を出せない。unlock() をクリックやキーで呼ぶ。
 // 判定は、この AudioContext の時計(songTime)を基準にする。
 
-import { TRACKS } from "./bgm.js";
+import { TICKS_ONLY, TRACKS } from "./bgm.js";
+import { BGM_FILES } from "./bgm_files.js";
 
 const SETTINGS_KEY = "cookingBattle.settings";
 
@@ -74,6 +75,7 @@ export function unlock() {
     for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
   }
   if (ctx.state === "suspended") ctx.resume();
+  loadBgmFiles();
 }
 
 // つまみ(0〜100)→ 音の 大きさ。小さい ほうも 変わりが わかるよう、2じょうに する
@@ -174,7 +176,8 @@ function pump() {
   }
   const horizon = ctx.currentTime + 1.5;
   while (zero + seg.t0 + seg.scheduled * seg.bar < horizon) {
-    TRACKS[seg.name](zero + seg.t0 + seg.scheduled * seg.bar, seg, seg.scheduled, inst);
+    const build = seg.file ? (seg.name === "fight" || seg.name === "boss" ? TICKS_ONLY : null) : TRACKS[seg.name];
+    if (build) build(zero + seg.t0 + seg.scheduled * seg.bar, seg, seg.scheduled, inst);
     seg.scheduled += 1;
   }
 }
@@ -200,15 +203,74 @@ export function startSong() {
 
 // 曲を かえる。at は、曲の時計での はじまりの 秒(なければ、すぐ あと)。まえの曲は、すぐ 小さくして きえる。
 // かえす 値:いまの曲の {beat, bar, t0, ...}(矢印の 拍を これに そろえる)
+// --- 自分で作った曲(音声ファイル) ---
+const fileBuf = {}; // キー → { buf, bpm, lead }
+let filesLoading = null;
+
+function fileKey(name, flavor) {
+  return name === "fight" || name === "boss" ? `${name}_${flavor}` : name;
+}
+
+// 一覧(bgm_files.js)に ファイル名が 書いてある 曲だけ、読みこむ。音が ならせる ように なったあとに 1回だけ。
+export function loadBgmFiles() {
+  if (!ctx || filesLoading) return filesLoading;
+  filesLoading = Promise.all(
+    Object.entries(BGM_FILES).map(async ([key, info]) => {
+      if (!info.file) return;
+      try {
+        const res = await fetch(`../assets/bgm/${info.file}`);
+        if (!res.ok) throw new Error(String(res.status));
+        const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+        fileBuf[key] = { buf, bpm: info.bpm, lead: info.lead ?? 0 };
+      } catch (err) {
+        console.warn(`曲のファイルを 読めませんでした: ${info.file}`, err);
+      }
+    }),
+  ).then(() => {
+    // 表紙・結果の 曲を すでに 鳴らしていて、自分の曲が 読みこめたら、そちらに 切りかえる(戦いの 最中は かえない)
+    if (seg && !seg.file && ["cover", "quiz", "result_win", "result_lose"].includes(seg.name) && fileBuf[fileKey(seg.name, seg.flavor)]) {
+      playTrack(seg.name, seg.bpm, undefined, seg.flavor);
+    }
+  });
+  return filesLoading;
+}
+
+// 自分の曲が あるときの テンポ(なければ null)。戦いの 矢印は、このテンポに そろえる
+export function trackBpm(name, flavor = "") {
+  return fileBuf[fileKey(name, flavor)]?.bpm ?? null;
+}
+
+function startFile(fb, tStart) {
+  const src = ctx.createBufferSource();
+  src.buffer = fb.buf;
+  src.loop = true;
+  src.loopStart = fb.lead;
+  src.loopEnd = fb.buf.duration;
+  src.connect(songBus);
+  const when = zero + tStart;
+  const nowT = ctx.currentTime;
+  if (when >= nowT + 0.02) {
+    src.start(when, fb.lead);
+  } else {
+    // もう はじまっている はずの 時刻:ずれた ぶんだけ 曲の 途中から
+    const span = Math.max(0.1, fb.buf.duration - fb.lead);
+    src.start(nowT + 0.02, fb.lead + ((nowT - when) % span));
+  }
+  sources.push(src);
+}
+
 export function playTrack(name, bpm, at, flavor = "", extra = {}) {
   if (!ctx || !master || !TRACKS[name]) return null;
+  const fb = fileBuf[fileKey(name, flavor)];
   ensureClock();
   fadeOut();
   songBus = ctx.createGain();
   songBus.connect(bgmGain);
   tickBus = ctx.createGain();
   tickBus.connect(rhythmGain);
-  seg = { name, bpm, beat: 60 / bpm, bar: 240 / bpm, t0: at ?? songTime() + 0.25, flavor, scheduled: 0, ...extra };
+  if (fb) bpm = fb.bpm;
+  seg = { name, bpm, beat: 60 / bpm, bar: 240 / bpm, t0: at ?? songTime() + 0.25, flavor, scheduled: 0, file: !!fb, ...extra };
+  if (fb) startFile(fb, seg.t0);
   playing = true;
   if (!timer) timer = setInterval(pump, 250);
   pump();

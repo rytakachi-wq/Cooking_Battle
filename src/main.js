@@ -22,7 +22,7 @@ import {
   registerMiss,
 } from "./game.js";
 import { penaltyRate } from "./game.js";
-import { activeSources, alive, getVolume, pauseAudio, resetSettings, resumeAudio, setVolume, cueAtSongTime, restCueAtSongTime, playTrack, trackName, watch, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
+import { activeSources, alive, getVolume, pauseAudio, resetSettings, resumeAudio, setVolume, cueAtSongTime, restCueAtSongTime, playTrack, trackBpm, trackName, watch, getOffset, isMuted, playSe, setMuted, setOffset, songTime, startSong, stopSong, unlock } from "./audio.js";
 import { DEFAULT_RECIPE, RECIPES } from "./recipes.js";
 import * as Q from "./quiz.js";
 import { drawActionFx, drawQuizScene } from "./scenes.js";
@@ -421,7 +421,7 @@ function endQuiz(now = songTime()) {
   run.lastPattern = -1;
   // その敵のテンポの曲を はじめる。矢印の拍は、この曲の小節に そろえる(1小節めは じゅんびの小節)
   const foe = enemyOf(run.state);
-  const bpm = foe.bpm ?? 120;
+  const bpm = trackBpm(foe.boss ? "boss" : "fight", foe.id) ?? foe.bpm ?? 120; // 自分の曲が あれば、その テンポに そろえる
   run.seg = { t0: now + 0.35, bpm, beat: 60 / bpm, bar: 240 / bpm };
   const foeUsesHalf = foe.patterns.some((p) => p.some(([beat]) => beat % 1 !== 0));
   playTrack(foe.boss ? "boss" : "fight", bpm, run.seg.t0, foe.id, { half: foeUsesHalf });
