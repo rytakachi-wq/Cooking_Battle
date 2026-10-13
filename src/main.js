@@ -759,14 +759,8 @@ function update(now) {
     r.tip = null;
     const enemy = enemyOf(r.state);
     run.quizQueue = quizzesFor(enemy.step, enemy.quizzes, enemy.id);
-    if (run.failLook) {
-      // 前の問題を まちがえたまま:この敵も 強い姿・体力アップを 引きつぐ(正解すると つぎの敵からは 元に もどる)
-      const st = r.state;
-      st.fails[enemy.id] = true;
-      st.wrong[enemy.id] = (st.wrong[enemy.id] ?? 0) + 1;
-      st.enemyMax = Math.round(st.enemyMax * (1 + penaltyRate(enemy)));
-      st.enemyHp = st.enemyMax;
-    }
+    run.failLook = false; // 引きつぎは 同じ敵の 問題の あいだだけ。次の敵では 元に もどる
+    run.failKey = null;
     saveProgress();
     nextQuiz(now);
   } else if (r.phase === "end" && now >= r.phaseUntil) {
@@ -1477,7 +1471,7 @@ function draw(now) {
     if (fimg?.complete && fimg.naturalWidth) {
       const fw = fimg.naturalWidth * 1.1;
       const fh = fimg.naturalHeight * 1.1;
-      g.drawImage(fimg, 255 - fw / 2, 392 - fh, fw, fh); // 主人公の となり(道具・材料・カードと かさならない場所)
+      g.drawImage(fimg, 255 - fw / 2, 418 - fh, fw, fh); // 主人公の となり(道具・材料・カードと かさならない場所)
     }
   }
 
