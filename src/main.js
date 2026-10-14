@@ -772,7 +772,7 @@ function press(key, now) {
   target.hitAt = now;
   registerHit(run.state, grade);
   popup(grade === "perfect" ? "PERFECT!" : "GOOD", grade === "perfect" ? "#ff8a00" : "#2f9e44", now);
-  spawnHitFx(BOARD.cx - 111 + target.beat * 74, BOARD.cy + 6, grade, now);
+  spawnHitFx(BOARD.cx - 129 + target.beat * 86, BOARD.cy + 6, grade, now);
   if (run.state.combo > 0 && run.state.combo % COMBO_STEP === 0) {
     comboBurst(run.state.combo, now);
     healHero(MISS_DAMAGE, now); // 5コンボごとに、1回の ミスぶん 回復
@@ -1072,17 +1072,17 @@ function drawBoard(r, now) {
   const st = boardState(r, now);
   const calling = st?.calling === true;
   // 拍の位置 → よこの位置。1拍=74ピクセル。0〜2.5拍が「うごく」3拍、3拍めの位置が「休み」
-  const X = (p) => cx - 111 + p * 74;
+  const X = (p) => cx - 129 + p * 86;
 
   // カード(ききましょう=青、まねして=あたたかい色)
   g.save();
   g.fillStyle = "rgba(74,44,23,0.18)";
-  roundRect(cx - 168, cy - 36, 336, 140, 26);
+  roundRect(cx - 186, cy - 36, 372, 140, 26);
   g.fill();
   g.fillStyle = calling ? "#dfe9f6" : "#fff4d8";
   g.strokeStyle = calling ? "#5b7aa3" : INK;
   g.lineWidth = 3;
-  roundRect(cx - 168, cy - 42, 336, 140, 26);
+  roundRect(cx - 186, cy - 42, 372, 140, 26);
   g.fill();
   g.stroke();
   g.restore();
@@ -1091,7 +1091,7 @@ function drawBoard(r, now) {
     g.fillStyle = "rgba(74,44,23,0.55)";
     g.font = "bold 13px sans-serif";
     g.textAlign = "left";
-    g.fillText("ちゅうもん", cx - 150, cy - 22);
+    g.fillText("ちゅうもん", cx - 168, cy - 22);
     return;
   }
   const { group, callStart, respStart, responding, beat: beatLen } = st;
@@ -1100,20 +1100,20 @@ function drawBoard(r, now) {
   g.save();
   g.font = "bold 14px sans-serif";
   if (calling) {
-    drawLid(cx - 146, cy - 28);
+    drawLid(cx - 164, cy - 28);
     g.textAlign = "left";
     g.fillStyle = "#3d5f8f";
-    g.fillText("ききましょう ♪", cx - 116, cy - 22);
+    g.fillText("ききましょう ♪", cx - 134, cy - 22);
   } else {
     g.textAlign = "left";
     g.fillStyle = responding ? "#e8472f" : "rgba(74,44,23,0.55)";
-    g.fillText(responding ? (r.state.enemyHp <= 0 ? "とどめ！さいごまで おそう！" : "まねして おそう！") : "ちゅうもん", cx - 150, cy - 22);
+    g.fillText(responding ? (r.state.enemyHp <= 0 ? "とどめ！さいごまで おそう！" : "まねして おそう！") : "ちゅうもん", cx - 168, cy - 22);
   }
   g.restore();
 
   // 半拍(0.5拍)ずれた矢印が あるときは、お皿を ちいさくして、ならべる
   const tight = group.some((a, i) => group.some((b, j) => j > i && Math.abs(a.beat - b.beat) < 1));
-  const pr = tight ? 17 : 24;
+  const pr = 21; // 矢印の おおきさは いつも おなじ(半拍の ときも ちいさく しない)
   const y = cy + 6;
 
   group.forEach((note, i) => {

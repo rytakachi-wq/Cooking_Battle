@@ -134,9 +134,6 @@ function fight(t0, seg, i, I) {
     snare(I, t0 + beat * 3.75, 0.24);
   }
   // きらきらの アルペジオ(コードを 高い 音で)
-  if (lv >= 2) {
-    FIGHT_STABS[ci].forEach((n, k) => bell(I, n + 24 + fl.shift, t0 + beat * 3 + (k * beat) / 3, beat * 0.5, 0.045));
-  }
   // メロディ
   phrase.forEach((n, s) => {
     if (!n) return;
