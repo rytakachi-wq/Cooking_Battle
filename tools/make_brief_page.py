@@ -145,6 +145,19 @@ SAMPLE = [
     ("dish_bowl_egg / soup_board_onion", "料理の 絵"),
 ]
 
+# 受け取りずみの 敵の 絵(2026-10-14:20枚の シート/単体から 数えた。ポーズは 見た目で 判断)
+HAVE = set()
+for _p in ("normal", "attack", "damage", "down"):
+    HAVE.add(f"syrup_{_p}"); HAVE.add(f"syrup_strong_{_p}")
+    for _e in ("butter", "milk", "mix"):
+        HAVE.add(f"{_e}_{_p}")
+for _n in ("egg_strong_normal", "butter_strong_normal", "milk_strong_normal", "mix_strong_normal",
+           "cabbage_normal", "cabbage_strong_normal", "cabbage_strong_attack",
+           "carrot_strong_normal", "carrot_strong_attack",
+           "consomme_normal", "consomme_strong_normal", "consomme_strong_attack",
+           "saltpepper_normal", "saltpepper_strong_normal", "saltpepper_attack"):
+    HAVE.add(_n)
+
 e = html.escape
 
 
@@ -164,16 +177,18 @@ def table(head, body, cls=""):
 n_hero_base = len(HERO_BASE)
 n_hero_act = len(HERO_PANCAKE) + len(HERO_SOUP)
 n_enemy = len(ENEMIES) * len(POSES) * 2
+n_have = len(HAVE)
 n_dish = len(DISH_PANCAKE) + len(DISH_SOUP)
 n_fail = len(FAIL)
 n_bg = len(BG)
 n_oth = len(OTHERS) - 1  # 任意の バッジは のぞく
 total = n_hero_base + n_hero_act + n_enemy + n_dish + n_fail + n_bg + n_oth
+left = total - n_have
 
 sections = [
     ("a", "A", "主人公の 基本ポーズ", n_hero_base, "最優先"),
     ("b", "B", "主人公の 調理の動き", n_hero_act, "高"),
-    ("c", "C", "食材モンスター(通常・強化形態)", n_enemy, "最優先"),
+    ("c", "C", "食材モンスター(通常・強化形態)", f"{n_enemy - n_have}(残り)", "最優先"),
     ("d", "D", "料理の 進み(調理台の 上)", n_dish, "中"),
     ("e", "E", "料理の しっぱい", n_fail, "中"),
     ("f", "F", "場面の 背景", n_bg, "高"),
@@ -188,8 +203,11 @@ enemy_rows = rows(
     lambda x: [f"<b>{e(x[1])}</b><small>{e(x[2])}</small>", code(x[0], "_*"), e(x[3]), e(x[4]), e(x[5])],
 )
 pose_rows = rows(POSES, lambda p: [code(p[0], ""), e(p[1]), e(p[2])])
+def _f(name):
+    return f'<s class="have">✓ {code(name)}</s>' if name in HAVE else code(name)
+
 files_c = "".join(
-    f"<li>{code(en[0] + '_' + p[0])} <span>{code(en[0] + '_strong_' + p[0])}</span></li>" for en in ENEMIES for p in POSES
+    f"<li>{_f(en[0] + '_' + p[0])} <span>{_f(en[0] + '_strong_' + p[0])}</span></li>" for en in ENEMIES for p in POSES
 )
 
 page = f"""<title>画像の依頼書 2つの料理</title>
@@ -265,6 +283,7 @@ td small {{ display: block; color: var(--ink-soft); font-size: 12px; }}
 .spec span {{ font-size: 12px; color: var(--ink-soft); }}
 .copy {{ font: 700 13px var(--font-display); padding: 6px 14px; border-radius: 999px; border: 2px solid var(--ink); background: var(--panel); color: var(--ink); cursor: pointer; justify-self: start; }}
 .copy:hover, .copy:focus-visible {{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); outline: none; }}
+s.have {{ color: var(--ink-soft); text-decoration: none; opacity: 0.7; }}
 .pri {{ font: 700 12px var(--font-display); color: var(--ink-soft); }}
 ol.first {{ margin: 6px 0; padding-left: 1.4em; }}
 @media (prefers-reduced-motion: no-preference) {{ .side nav a {{ transition: border-color .15s; }} }}
@@ -279,7 +298,7 @@ ol.first {{ margin: 6px 0; padding-left: 1.4em; }}
       <a href="#first"><b>1</b><span>最初に 見せてほしい 6組</span><i></i></a>
       {nav}
     </nav>
-    <p class="total">合計 <b>{total}</b> 枚<br>＋ 任意 1枚</p>
+    <p class="total">残り <b>{left}</b> 枚<br>(全 {total} 枚のうち {n_have} 枚は 受け取りずみ)<br>＋ 任意 1枚</p>
   </aside>
 
   <main>
@@ -352,7 +371,8 @@ ol.first {{ margin: 6px 0; padding-left: 1.4em; }}
     </section>
 
     <section class="sec" id="c">
-      <h2><span class="tag">C</span>食材モンスター(通常・強化形態)<span class="n">{n_enemy}枚 ・ 縦 768px 以上 ・ 透明</span></h2>
+      <h2><span class="tag">C</span>食材モンスター(通常・強化形態)<span class="n">全{n_enemy}枚 ・ 受け取り {n_have} ・ 残り {n_enemy - n_have}</span></h2>
+      <div class="box warn"><b>2026-10-14 に 受け取った 20枚</b>で、✓ の ついた 絵は 作らなくて 大丈夫です。<b>✓ の 絵柄・顔・配色に そろえて</b>、のこりの ポーズを お願いします(卵・玉ねぎ・人参・キャベツ・コンソメ・塩こしょうは 特に 足りません)。シートから 切り出した 絵は 約150〜200px と 小さいので、<b>単体の 高解像度(縦 768px 以上)</b>が あると 助かります。</div>
       <p>10体 × 4ポーズ × (通常・強化形態)。通常は「食材と すぐ わかる かわいい 姿」、強化形態は 手順を まちがえたとき 出る「<b>同じ食材と すぐ わかる うえで パワーアップした 姿</b>」です。</p>
       <div class="box">
         <h3 style="margin-top:0">強化形態の 共通条件</h3>
@@ -398,8 +418,8 @@ ol.first {{ margin: 6px 0; padding-left: 1.4em; }}
     </section>
 
     <section class="sec" id="sum">
-      <h2>まとめ<span class="n">全部で {total} 枚</span></h2>
-      {table(["区分", "内容", "枚数", "優先"], "".join(f"<tr><td><b>{s[1]}</b></td><td>{e(s[2])}</td><td>{s[3]}</td><td>{s[4]}</td></tr>" for s in sections) + f"<tr><td></td><td><b>合計</b></td><td><b>{total}</b></td><td></td></tr>")}
+      <h2>まとめ<span class="n">残り {left} 枚(全 {total} 枚)</span></h2>
+      {table(["区分", "内容", "枚数", "優先"], "".join(f"<tr><td><b>{s[1]}</b></td><td>{e(s[2])}</td><td>{s[3]}</td><td>{s[4]}</td></tr>" for s in sections) + f"<tr><td></td><td><b>残り(受け取りずみ {n_have} を のぞく)</b></td><td><b>{left}</b></td><td></td></tr>")}
       <button class="copy" id="copy-names" type="button">ファイル名を ぜんぶ コピー</button>
       <p id="copy-note" class="pri" aria-live="polite"></p>
     </section>

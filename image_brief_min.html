@@ -1,0 +1,89 @@
+<title>画像の依頼書 最小版</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&family=BIZ+UDPGothic:wght@400;700&display=swap">
+<style>
+/* 配置:1本の 読みもの。いちばん上に「作ってほしい 3枚」、そのあと 任意、最後に「作らなくて よいもの」 */
+:root {
+  --bg: #fdfaf4; --panel: #ffffff; --ink: #3b2a1e; --ink-soft: #7a6755; --line: #e6dccb;
+  --accent: #e0561f; --accent-ink: #ffffff; --mark: #fff0c9; --ok: #2f7d4a;
+  --font-display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic UI", sans-serif;
+  --font-body: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+  --font-code: ui-monospace, "SF Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #1f1812; --panel: #2a2118; --ink: #f3e8d8; --ink-soft: #b9a68f; --line: #44372a; --accent: #ff8a52; --accent-ink: #2a1408; --mark: #4a3a1c; --ok: #6fcf8c; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #1f1812; --panel: #2a2118; --ink: #f3e8d8; --ink-soft: #b9a68f; --line: #44372a; --accent: #ff8a52; --accent-ink: #2a1408; --mark: #4a3a1c; --ok: #6fcf8c; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.85 var(--font-body); padding-inline: 16px; padding-block: 28px 64px; }
+main { max-width: 820px; margin: 0 auto; display: grid; gap: 24px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.35; margin: 0; }
+h1 { font-size: clamp(26px, 5vw, 36px); font-weight: 900; }
+h2 { font-size: 20px; font-weight: 900; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+h2 .n { margin-left: auto; font: 500 14px var(--font-display); color: var(--ink-soft); }
+p { margin: 6px 0; max-width: 62em; }
+code { font: 13px var(--font-code); background: var(--mark); padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+.box ul, .box ol { margin: 6px 0; padding-left: 1.4em; }
+.box li { margin: 4px 0; }
+.must { border-color: var(--accent); border-width: 2px; }
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+th { font: 700 12px var(--font-display); letter-spacing: 0.04em; color: var(--ink-soft); background: var(--mark); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.big { font: 900 44px var(--font-display); color: var(--accent); line-height: 1; }
+.head { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.soft { color: var(--ink-soft); }
+</style>
+<main>
+  <header>
+    <h1>画像の依頼書 最小版</h1>
+    <p>画像AIの 利用回数に 限りが あるため、<b>どうしても 要る 絵だけ</b> に しぼりました。ほかの 絵は、ゲームの中で 動きや 効果を 足して まかないます。</p>
+  </header>
+
+  <section class="box must">
+    <div class="head">
+      <span class="big">3枚</span>
+      <p style="margin:0"><b>これだけ 作って ください</b>。今ある 絵(受け取りずみ の 食材モンスター)と <b>同じ 絵柄・同じ 顔・同じ 配色</b>で。</p>
+    </div>
+    <div class="tw" style="margin-top:12px"><table>
+      <thead><tr><th>ファイル名</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>onion_normal.png</code></td><td><b>玉ねぎ</b>(通常)。茶色い 皮の 玉ねぎ。涙が にじむ ひとみ、頭の先に 細い芽。立ち姿(正面・全身)。かわいく、少し 怒った 顔</td></tr>
+        <tr><td><code>onion_strong_normal.png</code></td><td><b>玉ねぎ</b>(強化形態)。皮が よろいのように 重なり、体が ひとまわり 大きく、両腕 ムキムキ。涙は 雨のような オーラ。武器は 丸みのある 包丁形の 剣。立ち姿</td></tr>
+        <tr><td><code>carrot_normal.png</code></td><td><b>人参</b>(通常)。オレンジ色の 人参、頭に 緑の 葉っぱ。太い まゆで にっこり、少し やる気。立ち姿(今ある 強化形態の 人参の「ふつうの 姿」)</td></tr>
+      </tbody>
+    </table></div>
+    <div class="box" style="margin-top:12px">
+      <p style="margin:0 0 4px"><b>条件(3枚とも)</b></p>
+      <ul>
+        <li><b>1枚ずつ 別ファイル</b>、PNG、<b>本当の 透明背景</b>(市松もようを 絵に しない)、<b>縦 768px 以上</b>、全身。</li>
+        <li>文字・セリフを 入れない。こわすぎない(子どもも 遊びます)。血は 使わない。</li>
+        <li>ほかの 絵と 大きさを そろえるため、<b>立ち姿は 画面の 中央・足もとまで 入れて</b>ください。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box">
+    <h2>あれば うれしい(なくても 動きます)<span class="n">最大 2枚</span></h2>
+    <div class="tw" style="margin-top:8px"><table>
+      <thead><tr><th>ファイル名</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>soup_bowl_soup.png</code></td><td>完成した コンソメスープ(器に 入った、湯気の 立つ スープ。にんじん・玉ねぎ・キャベツが 見える)。横 768px くらい・透明。<span class="soft">なければ ゲームの 中で 描きます。</span></td></tr>
+        <tr><td><code>menu_soup.png</code></td><td>料理えらびの カード用の コンソメスープの 絵(正方形 512px)。<span class="soft">なければ 上の 絵を 小さく 使います。</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="box">
+    <h2>作らなくて よいもの</h2>
+    <p>次の ものは、ゲームの中で 動きや 効果を 足して まかなうので、画像は いりません。</p>
+    <ul>
+      <li><b>敵の「こうげき・ダメージ・倒れた」の ポーズ</b>:通常の 絵を つかい、前に 出る・白く ひかる・ゆれる・ころがる 動きで 表します(今の ゲームでも ひるむ ときは 白く ひかります)。</li>
+      <li><b>受け取りずみの 敵</b>(シロップ・バター・牛乳・ミックス・卵・キャベツ・コンソメ・塩こしょう・人参の 強化形態): <b>今ある 絵を つかいます</b>。</li>
+      <li><b>主人公の 調理の動き</b>(40枚):今ある 5つの ポーズと、ゲームの中の 道具・動きの 表現で まかないます。</li>
+      <li><b>背景・料理の 進み(スープ)・しっぱいの 絵(スープ)</b>:ゲームの中で 描きます。</li>
+      <li><b>パンケーキの 画像</b>:今ある 絵を そのまま つかいます。</li>
+    </ul>
+  </section>
+</main>
