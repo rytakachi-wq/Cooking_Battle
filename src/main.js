@@ -50,12 +50,16 @@ const POSES = {
   enemy: ["normal", "attack", "damage", "down"],
 };
 const FAIL_ART = { egg: "fail_shells", milk: "fail_milk", mix: "fail_lumps", butter: "fail_burnt", syrup: "fail_syrup" };
-const SCALE = { hero: 0.82, egg: 1.6, milk: 1.5, mix: 1.5, butter: 2.15, syrup: 1.75 };
+// 敵の 絵の 倍率。新しい 絵(牛乳・ミックス・バター・シロップ)は 2ばいの 解像度なので 0.5。卵の 通常は 古い 絵なので 1.6
+const SCALE = { hero: 0.82, egg: 1.6, milk: 0.5, mix: 0.5, butter: 0.5, syrup: 0.5 };
+// まだ ない ポーズの 絵(通常の 絵を うごかして 代わりに する)
+const ART_MISSING = new Set(["egg_strong_attack", "milk_strong_attack", "milk_strong_damage", "milk_strong_down", "mix_strong_attack", "mix_strong_damage", "mix_strong_down", "butter_strong_attack", "butter_strong_damage", "butter_strong_down"]);
 const images = {};
 function loadImages() {
   const jobs = [];
   const add = (who, poses) =>
     poses.forEach((pose) => {
+      if (ART_MISSING.has(`${who}_${pose}`)) return;
       const img = new Image();
       img.src = `../assets/chars/${who}_${pose}.png`;
       images[`${who}_${pose}`] = img;
@@ -886,7 +890,7 @@ function showResult() {
 
 // --- 描画 ---
 
-function drawSprite(name, cx, bottom, scale, { flip = false, dy = 0, alpha = 1 } = {}) {
+function drawSprite(name, cx, bottom, scale, { flip = false, dy = 0, alpha = 1, rot = 0 } = {}) {
   const img = images[name];
   if (!img || !img.complete || !img.naturalWidth) return;
   const w = img.naturalWidth * scale;
@@ -894,6 +898,7 @@ function drawSprite(name, cx, bottom, scale, { flip = false, dy = 0, alpha = 1 }
   g.save();
   g.globalAlpha = alpha;
   g.translate(cx, bottom + dy);
+  if (rot) g.rotate(rot);
   if (flip) g.scale(-1, 1);
   g.drawImage(img, -w / 2, -h, w, h);
   g.restore();
@@ -1539,8 +1544,13 @@ function draw(now) {
     const flinch = since >= 0 && since < 0.18 ? 1 - since / 0.18 : 0;
     const weak = r.enemyPose === "normal" && s.enemyHp / s.enemyMax < 0.5 ? "damage" : r.enemyPose;
     const strong = s.fails[enemy.id] === true;
-    const ename = strong && STRONG_ART ? `${enemy.id}_strong_${weak}` : `${enemy.id}_${weak}`;
-    const edy = r.enemyPose === "normal" ? bounce : 0;
+    let ename = strong && STRONG_ART ? `${enemy.id}_strong_${weak}` : `${enemy.id}_${weak}`;
+    // その ポーズの 絵が ない ときは、通常の 絵を 動かして 代わりに する(前に出る・たおれる)
+    const fallback = !images[ename]?.naturalWidth;
+    if (fallback) ename = strong && STRONG_ART ? `${enemy.id}_strong_normal` : `${enemy.id}_normal`;
+    const fx = fallback && weak === "attack" ? -18 : 0;
+    const frot = fallback && weak === "down" ? 1.35 : fallback && weak === "damage" ? 0.08 : 0;
+    const edy = r.enemyPose === "normal" ? bounce : fallback && weak === "down" ? 24 : 0;
     const ex = strong && STRONG_ART ? 760 : 770;
     const overlay = strong && !STRONG_ART;
     const escale = strong && STRONG_ART ? strongArtScale(enemy.id) : overlay ? strongScale(ename, SCALE[enemy.id]) : SCALE[enemy.id];
@@ -1549,7 +1559,7 @@ function draw(now) {
     const eh = eimg?.naturalHeight ? eimg.naturalHeight * escale : 0;
     if (overlay && ew && r.enemyPose !== "down") drawStrongBack(770, 398 + edy, ew, eh, now);
     if (flinch > 0) drawFlash(ename, ex, 398 + edy, escale, flinch * 0.5, flinch * 8);
-    else drawSprite(ename, ex, 398, escale, { dy: edy });
+    else drawSprite(ename, ex + fx, 398, escale, { dy: edy, rot: frot });
     if (overlay && ew && r.enemyPose !== "down") drawStrongFront(770, 398 + edy, ew, eh);
   }
 
