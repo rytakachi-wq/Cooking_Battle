@@ -70,7 +70,7 @@ function loadImages() {
   };
   for (const name of ["dish_bowl_empty", "dish_bowl_egg", "dish_bowl_milk", "dish_bowl_batter", "dish_pan_raw", "dish_pan_golden", "dish_plate_pancake", "dish_plate_syrup"]) addFile(name, `dish/${name}.png`);
   for (const name of ["fail_shells", "fail_milk", "fail_lumps", "fail_burnt", "fail_syrup"]) addFile(name, `fail/${name}.png`);
-  for (const name of ["ui_hand", "ui_lid", "ui_stamp_fail"]) addFile(name, `ui/${name}.png`);
+  for (const name of ["ui_hand_open", "ui_hand_pinch", "ui_lid", "ui_stamp_fail"]) addFile(name, `ui/${name}.png`);
   add("hero", POSES.hero);
   Object.values(RECIPES).forEach((recipe) =>
     recipe.enemies.forEach((enemy) => {
@@ -1527,8 +1527,8 @@ function draw(now) {
     // 前の問題を まちがえた「しっぱい料理」を、正解するまで 次の問題にも 出しておく
     const fimg = images[FAIL_ART[r.failKey]];
     if (fimg?.complete && fimg.naturalWidth) {
-      const fw = fimg.naturalWidth * 0.8;
-      const fh = fimg.naturalHeight * 0.8;
+      const fw = fimg.naturalWidth * 0.4; // 絵は 2ばいの 大きさで 持っている
+      const fh = fimg.naturalHeight * 0.4;
       g.drawImage(fimg, 480 - fw / 2, 374 - fh, fw, fh); // 料理(ボウル・フライパン・お皿)の 中に 入れる
     }
   }
@@ -1720,14 +1720,13 @@ function drawStageBg() {
   g.fillRect(0, 380, W, 12);
 }
 
-// 手のカーソル(ui_hand.png の ひだりがわの手)
+// 手のカーソル(ふつう=ひらいた手、つまむ=つまむ手)
 function drawHand(x, y, pinch) {
-  const img = images.ui_hand;
+  const img = pinch ? images.ui_hand_pinch : images.ui_hand_open;
   if (!img || !img.naturalWidth) return;
-  const sw = img.naturalWidth * 0.56;
   const h = pinch ? 58 : 66;
-  const w = (sw * h) / img.naturalHeight;
-  g.drawImage(img, 0, 0, sw, img.naturalHeight, x - w * 0.3, y - h * 0.08, w, h);
+  const w = (img.naturalWidth * h) / img.naturalHeight;
+  g.drawImage(img, x - w * 0.3, y - h * 0.08, w, h);
 }
 
 function drawKeyCap(x, y, key, down) {
@@ -1928,7 +1927,7 @@ function tutMistake(t) {
       g.globalAlpha = (k - 0.6) / 0.4;
       g.translate(780, 190);
       g.rotate(-0.12);
-      g.drawImage(stamp, -55, -48, 110, 96);
+      g.drawImage(stamp, -50, -50, 100, 100);
       g.restore();
     }
   }
