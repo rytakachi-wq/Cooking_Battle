@@ -52,15 +52,18 @@ const POSES = {
 const DISH_DRAW_SCALE = 0.875; // 料理・しっぱいの 絵は 2ばいの 大きさ。station.js の DISH_SCALE と おなじ
 const FAIL_ART = { egg: "fail_shells", milk: "fail_milk", mix: "fail_lumps", butter: "fail_burnt", syrup: "fail_syrup" };
 // 敵の 絵の 倍率。新しい 絵(牛乳・ミックス・バター・シロップ)は 2ばいの 解像度なので 0.5。卵の 通常は 古い 絵なので 1.6
-const SCALE = { hero: 0.82, egg: 1.6, milk: 0.5, mix: 0.5, butter: 0.5, syrup: 0.5 };
-// まだ ない ポーズの 絵(通常の 絵を うごかして 代わりに する)
-const ART_MISSING = new Set(["egg_strong_attack", "milk_strong_attack", "milk_strong_damage", "milk_strong_down", "mix_strong_attack", "mix_strong_damage", "mix_strong_down", "butter_strong_attack", "butter_strong_damage", "butter_strong_down"]);
+const SCALE = { hero: 0.82, egg: 1.6, milk: 0.5, mix: 0.5, butter: 0.5, syrup: 0.5, onion: 0.5, carrot: 0.5, cabbage: 0.5, consomme: 0.5, saltpepper: 0.5 };
+// まだ ない ポーズの 絵は、assets/chars/manifest.json に のって いない。その ポーズは 通常の 絵を うごかして 代わりに する
 const images = {};
-function loadImages() {
+async function loadImages() {
   const jobs = [];
+  const have = await fetch("../assets/chars/manifest.json")
+    .then((r) => r.json())
+    .then((list) => new Set(list))
+    .catch(() => null); // 一覧が なければ、ぜんぶ 読みにいく
   const add = (who, poses) =>
     poses.forEach((pose) => {
-      if (ART_MISSING.has(`${who}_${pose}`)) return;
+      if (have && !have.has(`${who}_${pose}.png`)) return;
       const img = new Image();
       img.src = `../assets/chars/${who}_${pose}.png`;
       images[`${who}_${pose}`] = img;
@@ -120,12 +123,12 @@ function syncMenuMusic() {
 }
 
 function showCover() {
-  const stats = loadStats();
-  $("best").textContent = stats.plays
-    ? `さいこうとくてん ${stats.bestScore}　クリア ${stats.wins}回${stats.bestRank ? `　さいこうランク ${stats.bestRank}` : ""}`
-    : "";
+  const lines = Object.values(RECIPES).map((rc) => {
+    const st = loadStats(rc.id);
+    return st.plays ? `${rc.name}：さいこう ${st.bestScore}　クリア ${st.wins}回${st.bestRank ? `　ランク ${st.bestRank}` : ""}` : "";
+  });
+  $("best").textContent = lines.filter(Boolean).join("　／　");
   showMute();
-  $("btn-continue").hidden = !loadCheckpoint();
   show("cover");
   playMenuTrack("cover", 108);
 }
@@ -134,7 +137,9 @@ function showCover() {
 let run = null;
 let frame = 0;
 
-function begin(cp = null) {
+let lastRecipeId = "pancake";
+
+function begin(cp = null, recipeId = lastRecipeId) {
   if (tut) {
     cancelAnimationFrame(tutFrame);
     tut = null;
@@ -144,11 +149,13 @@ function begin(cp = null) {
   startSong();
   playTrack("quiz", 100, songTime() + 0.3);
   watch(true);
-  const state = createState();
+  const recipe = RECIPES[recipeId] ?? DEFAULT_RECIPE;
+  lastRecipeId = recipe.id;
+  const state = createState(recipe);
   if (cp) {
     // 「つづきから」:たおした敵まで すすんだ記録を もどす
     Object.assign(state, cp.state);
-    state.recipe = DEFAULT_RECIPE;
+    state.recipe = recipe;
     state.combo = 0;
     state.enemyIndex = cp.enemyIndex;
     state.enemyMax = state.recipe.enemies[cp.enemyIndex].hp;
@@ -192,7 +199,7 @@ function begin(cp = null) {
   show("play");
   const first = enemyOf(run.state);
   run.quizQueue = [
-    ...(cp ? [] : quizzesFor(DEFAULT_RECIPE.prep.step, DEFAULT_RECIPE.prep.quizzes, "prep")),
+    ...(cp || !recipe.prep ? [] : quizzesFor(recipe.prep.step, recipe.prep.quizzes, "prep")),
     ...quizzesFor(first.step, first.quizzes, first.id),
   ];
   nextQuiz();
@@ -204,7 +211,7 @@ function begin(cp = null) {
 function saveProgress() {
   const s = run.state;
   const { recipe, ...rest } = s;
-  saveCheckpoint({ failLook: !!run.failLook, failKey: run.failKey ?? null, enemyIndex: s.enemyIndex, state: JSON.parse(JSON.stringify(rest)) });
+  saveCheckpoint(s.recipe.id, { failLook: !!run.failLook, failKey: run.failKey ?? null, enemyIndex: s.enemyIndex, state: JSON.parse(JSON.stringify(rest)) });
 }
 
 function quitToCover() {
@@ -289,7 +296,7 @@ function openQuiz(def, failKey, now = songTime(), left = 1) {
 // その手順を、主人公が やって見せる(カードを おいた とき・答えあわせの とき)
 function startAction(rank, now) {
   const q = run.quiz;
-  run.action = { key: q.failKey, rank, from: now, variant: q.variant ?? 0 };
+  run.action = { key: q.failKey, rank, from: now, variant: run.state.recipe.id === "pancake" ? q.variant ?? 0 : 1 };
   run.attackAt = now; // 前に出て、手を うごかす
   setHero("attack", now, 0.45);
 }
@@ -477,7 +484,7 @@ function showTip(now) {
 }
 
 function finish(result, now) {
-  clearCheckpoint(); // おわった あそびは、つづきから できない
+  clearCheckpoint(run.state.recipe.id); // おわった あそびは、つづきから できない
   run.result = result;
   run.phase = "end";
   run.phaseUntil = now + (result === "win" ? TIP_TIME + 0.4 : 2.4);
@@ -869,10 +876,11 @@ function showResult() {
   const won = r.result === "win";
   const s = r.state;
   const grade = rank(s);
-  const { isRecord } = recordPlay({ score: s.score, won, rank: grade });
+  const recipeId = s.recipe.id;
+  const { isRecord } = recordPlay({ recipeId, score: s.score, won, rank: grade });
   cancelAnimationFrame(frame);
   run = null;
-  $("r-title").textContent = won ? "ホットケーキかんせい！" : "ざんねん…もういちど！";
+  $("r-title").textContent = won ? `${s.recipe.dish ?? s.recipe.name}かんせい！` : "ざんねん…もういちど！";
   $("r-hero").src = `../assets/chars/hero_${won ? "win" : "lose"}.png`;
   $("r-rank").textContent = won ? `ランク ${grade}` : "";
   $("r-score").textContent = s.score;
@@ -882,7 +890,7 @@ function showResult() {
   $("r-combo").textContent = s.maxCombo;
   $("r-cook").textContent = `${Object.keys(s.cookFails).length} / ${s.recipe.enemies.length}`;
   $("r-quiz").textContent = `${s.review.filter((item) => item.correct).length} / ${s.review.length}`;
-  $("r-best").textContent = loadStats().bestScore;
+  $("r-best").textContent = loadStats(recipeId).bestScore;
   $("r-record").hidden = !isRecord;
   showReview(s);
   show("result");
@@ -1370,7 +1378,7 @@ function drawNextEnemyMini(r, now) {
 }
 
 // 強化形態の絵の倍率。高さ(boss=大きめ)と、はば(画面の右はしに はみださない)の せまいほうに あわせる。
-const STRONG_FIT = { egg: [320, 360], milk: [330, 360], mix: [300, 320], butter: [310, 340], syrup: [340, 350] };
+const STRONG_FIT = { egg: [320, 360], milk: [330, 360], mix: [300, 320], butter: [310, 340], syrup: [340, 350], onion: [320, 350], carrot: [320, 350], cabbage: [320, 340], consomme: [330, 360], saltpepper: [330, 430] };
 function strongArtScale(id) {
   const img = images[`${id}_strong_normal`];
   if (!img || !img.naturalHeight) return SCALE[id];
@@ -1513,6 +1521,7 @@ function draw(now) {
     const failArt = r.failLook && r.failKey ? images[FAIL_ART[r.failKey]] : null;
     const showFail = !!(failArt?.complete && failArt.naturalWidth);
     drawQuizScene(g, r.quiz.failKey, now, showFail);
+    if (s.recipe.id !== "pancake") outlined(enemy.name, W / 2, 330, 44, "#8a5a1c"); // スープの 場面の 絵が できるまで、材料の 名前だけ
     if (showFail) {
       const fw = failArt.naturalWidth * DISH_DRAW_SCALE;
       const fh = failArt.naturalHeight * DISH_DRAW_SCALE;
@@ -1521,7 +1530,7 @@ function draw(now) {
   } else {
     g.save();
     g.translate(0, 24); // 注文カードと かさならないよう、料理を 少し下げる
-    drawStation(g, s.enemyIndex, r.shown, now, s.cookFails);
+    if (s.recipe.id === "pancake") drawStation(g, s.enemyIndex, r.shown, now, s.cookFails); // 調理台の 絵は パンケーキだけ(スープは まだ)
     g.restore();
   }
 
@@ -2011,21 +2020,58 @@ document.addEventListener(
   },
   true,
 );
-$("btn-start").addEventListener("click", () => {
+// 料理を えらぶ(表紙の「りょうりを えらぶ」)
+function openRecipeDialog() {
   unlock();
-  if (loadCheckpoint() && !window.confirm("つづきの記録が 消えるけど、はじめから あそぶ？")) return;
-  clearCheckpoint();
-  begin();
-});
-$("btn-continue").addEventListener("click", () => {
-  unlock();
-  const cp = loadCheckpoint();
-  if (cp) begin(cp);
-  else showCover();
-});
+  const box = $("recipe-cards");
+  box.replaceChildren();
+  for (const rc of Object.values(RECIPES)) {
+    const st = loadStats(rc.id);
+    const cp = loadCheckpoint(rc.id);
+    const card = document.createElement("article");
+    card.className = "recipe-card";
+    const h = document.createElement("h3");
+    h.textContent = rc.name;
+    const foes = document.createElement("p");
+    foes.className = "recipe-foes";
+    foes.textContent = rc.enemies.map((e) => e.name).join(" → ");
+    const best = document.createElement("p");
+    best.className = "note";
+    best.textContent = st.plays ? `さいこう ${st.bestScore}　クリア ${st.wins}回${st.bestRank ? `　ランク ${st.bestRank}` : ""}` : "まだ あそんでないよ";
+    const row = document.createElement("div");
+    row.className = "buttons";
+    const startBtn = document.createElement("button");
+    startBtn.type = "button";
+    startBtn.className = "btn btn-main btn-small";
+    startBtn.textContent = "はじめから";
+    startBtn.addEventListener("click", () => {
+      if (cp && !window.confirm("つづきの記録が 消えるけど、はじめから あそぶ？")) return;
+      clearCheckpoint(rc.id);
+      $("dlg-recipe").close();
+      begin(null, rc.id);
+    });
+    row.append(startBtn);
+    if (cp) {
+      const contBtn = document.createElement("button");
+      contBtn.type = "button";
+      contBtn.className = "btn btn-sub btn-small";
+      contBtn.textContent = `つづきから(${cp.enemyIndex + 1}体め)`;
+      contBtn.addEventListener("click", () => {
+        $("dlg-recipe").close();
+        begin(cp, rc.id);
+      });
+      row.append(contBtn);
+    }
+    card.append(h, foes, best, row);
+    box.append(card);
+  }
+  $("dlg-recipe").showModal();
+}
+$("btn-choose").addEventListener("click", openRecipeDialog);
+$("btn-recipe-close").addEventListener("click", () => $("dlg-recipe").close());
 $("btn-again").addEventListener("click", () => {
-  clearCheckpoint();
-  begin();
+  clearCheckpoint(lastRecipeId);
+  begin(null, lastRecipeId);
 });
 $("btn-cover").addEventListener("click", () => showCover());
 

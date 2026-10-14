@@ -308,3 +308,11 @@ a.btn { display: inline-block; background: var(--sub); }
 .review .rv-steps { margin: 2px 0 6px; padding-left: 1.6em; line-height: 1.7; font-size: 14px; list-style: decimal; }
 .review .rv-steps li { margin: 0; }
 .review .rv-reason { padding: 6px 10px; line-height: 1.7; background: #fff4d8; border-radius: 10px; font-size: 14px; }
+
+#dlg-recipe { width: min(94vw, 520px); }
+.recipe-cards { display: grid; gap: 12px; margin-bottom: 14px; }
+.recipe-card { padding: 12px 14px; background: #fff; border: 3px solid var(--ink); border-radius: 14px; text-align: left; }
+.recipe-card h3 { margin: 0 0 2px; font-size: 20px; color: var(--accent); }
+.recipe-foes { margin: 2px 0; font-size: 14px; }
+.recipe-card .note { margin: 2px 0 8px; }
+.recipe-card .buttons { justify-content: flex-start; }

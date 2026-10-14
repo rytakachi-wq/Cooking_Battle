@@ -9,6 +9,11 @@ export const ENEMY_FX = {
   mix: { shout: "ぐるぐる！", color: "#d9822b", chunk: "#f6e3b8" },
   butter: { shout: "ジュワッ！", color: "#e8a900", chunk: "#ffe066" },
   syrup: { shout: "とろ〜り！", color: "#9a5314", chunk: "#a85a14" },
+  onion: { shout: "ツーン！", color: "#c68a2e", chunk: "#e8c98a" },
+  carrot: { shout: "ザクッ！", color: "#ff8a1f", chunk: "#ffa94d" },
+  cabbage: { shout: "シャキッ！", color: "#5fb24a", chunk: "#b7e08a" },
+  consomme: { shout: "グツグツ！", color: "#e0a800", chunk: "#ffd54a" },
+  saltpepper: { shout: "パラパラ！", color: "#3a6ea5", chunk: "#ffffff" },
 };
 
 export const STATION = { x: 480, y: 392 }; // 調理台の中心(下のはし)

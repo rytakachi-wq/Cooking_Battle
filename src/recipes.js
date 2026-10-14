@@ -252,6 +252,191 @@ export const RECIPES = {
   },
 };
 
+
+// ---- コンソメスープ(材料=玉ねぎ・人参・キャベツ・コンソメ、味つけ=塩・こしょう)。内容は recipe_draft_soup.md ----
+// 準備(手洗い)は ない。矢印の型・テンポ・体力・判定は、ホットケーキの 卵→シロップと おなじ 段階で ふやす。
+const P = RECIPES.pancake.enemies; // 矢印の 型を おなじ グラデーションで つかう(卵→牛乳→ミックス→バター→シロップ)
+RECIPES.consomme = {
+  id: "consomme",
+  name: "コンソメスープ",
+  dish: "コンソメスープ",
+  prep: null,
+  enemies: [
+    {
+      id: "onion",
+      name: "玉ねぎ",
+      step: "① 玉ねぎを切れ！",
+      hp: 90,
+      penalty: 0.07,
+      bpm: 110,
+      window: 1.25,
+      quizzes: [
+        {
+          rhythmLabels: ["むく", "半分に", "うす切り"],
+          question: "玉ねぎを切るまでの じゅんばんは？",
+          steps: [
+            { text: "皮を むく", label: "むく" },
+            { text: "ヘタと根を 切り落とす", label: "ヘタ" },
+            { text: "半分に 切って 切り口を 下に する", label: "半分に" },
+            { text: "端から うす切りに する", label: "うす切り" },
+          ],
+          fail: "目が いたくて 涙が…！",
+          reason: "切り口を 下に すると 安定して 切りやすいよ。包丁は よく 切れるほうが、細胞を つぶさず 涙が 出にくいよ。",
+        },
+        {
+          show: 2,
+          question: "包丁を あつかう ときの じゅんばんは？",
+          steps: [
+            { text: "持つ前に まわりを 見る", label: "まわり" },
+            { text: "おさえる手は「ねこの手」にする", label: "ねこの手" },
+            { text: "切り終わったら 刃を むこうに むけて 置く", label: "置く" },
+            { text: "洗って 水気を ふいて しまう", label: "しまう" },
+          ],
+          fail: "指を 切りそうに なった！",
+          reason: "食材を おさえる手は、指を まるめて「ねこの手」。包丁は 使い終わったら すぐ 置いて、持ったまま 歩かないよ。",
+        },
+      ],
+      tip: "玉ねぎを 切るときは、冷蔵庫で 冷やしておくと 涙が 出にくいよ。",
+      patterns: P[0].patterns,
+    },
+    {
+      id: "carrot",
+      name: "人参",
+      step: "② 人参を切れ！",
+      hp: 100,
+      bpm: 113,
+      window: 1.25,
+      quizzes: [
+        {
+          rhythmLabels: ["あらう", "むく", "きる"],
+          question: "人参を 切るまでの じゅんばんは？",
+          steps: [
+            { text: "洗って 土を 落とす", label: "あらう" },
+            { text: "ピーラーで 皮を むく", label: "むく" },
+            { text: "ヘタを 切り落とす", label: "ヘタ" },
+            { text: "食べやすい 大きさに 切る", label: "きる" },
+          ],
+          fail: "土が のこって じゃりじゃり…",
+          reason: "皮つきの 野菜は まず ごしごし 洗おう。ピーラーは 手と 反対がわに 動かすと 安全だよ。",
+        },
+      ],
+      tip: "人参は 生の ままより、油や 火を 通すと 栄養を とりやすいよ。",
+      patterns: P[1].patterns,
+    },
+    {
+      id: "cabbage",
+      name: "キャベツ",
+      step: "③ キャベツを切れ！",
+      hp: 110,
+      bpm: 116,
+      window: 1.25,
+      quizzes: [
+        {
+          rhythmLabels: ["おく", "おさえる", "きる"],
+          question: "キャベツを 安全に 切る じゅんばんは？",
+          steps: [
+            { text: "半分に 切る", label: "半分" },
+            { text: "切り口を 下にして 台に 置く", label: "おく" },
+            { text: "ねこの手で おさえる", label: "おさえる" },
+            { text: "端から ざく切りに する", label: "きる" },
+          ],
+          fail: "キャベツが ころがって あぶなかった！",
+          reason: "丸いままだと ころがって あぶないよ。切り口を 下にして 安定させてから 切ろう。",
+        },
+        {
+          show: 2,
+          question: "キャベツを 洗って 切る じゅんばんは？",
+          steps: [
+            { text: "外側の 葉を はがす", label: "はがす" },
+            { text: "洗って 水気を きる", label: "あらう" },
+            { text: "芯を 切り取る", label: "芯" },
+            { text: "ざく切りに する", label: "きる" },
+          ],
+          fail: "虫や 土が のこってた…",
+          reason: "葉の あいだに よごれが たまりやすいよ。1枚ずつ 洗うと 安心。",
+        },
+      ],
+      tip: "キャベツは 芯の ほうが 甘いよ。細かく 切って 入れよう。",
+      patterns: P[2].patterns,
+    },
+    {
+      id: "consomme",
+      name: "コンソメ",
+      step: "④ 煮こんで 味を つけろ！",
+      hp: 120,
+      bpm: 119,
+      window: 1.25,
+      quizzes: [
+        {
+          rhythmLabels: ["いれる", "あく", "にる"],
+          question: "野菜を 煮る じゅんばんは？",
+          steps: [
+            { text: "鍋に 水と 野菜を 入れる", label: "いれる" },
+            { text: "火に かける", label: "火" },
+            { text: "ふっとう したら あくを とる", label: "あく" },
+            { text: "弱めの火で やわらかくなるまで 煮る", label: "にる" },
+          ],
+          fail: "野菜が かたいまま…",
+          reason: "水から 入れて ゆっくり 煮ると、野菜が やわらかくなるよ。",
+        },
+        {
+          show: 2,
+          question: "コンソメを 入れる じゅんばんは？",
+          steps: [
+            { text: "火を 止める", label: "止める" },
+            { text: "分量を はかる", label: "はかる" },
+            { text: "コンソメを 入れて とかす", label: "とかす" },
+            { text: "味を みる", label: "味見" },
+          ],
+          fail: "味が こすぎた！",
+          reason: "火を 止めて 入れると とけやすく、ふきこぼれも ふせげるよ。入れる前に 分量を はかって、少しずつ 味を みよう。",
+        },
+        {
+          show: 3,
+          question: "あつい 鍋を あつかう ときの じゅんばんは？",
+          steps: [
+            { text: "持ち手を 内向きに する", label: "持ち手" },
+            { text: "ふたは 顔を はなして むこうへ 開ける", label: "ふた" },
+            { text: "鍋つかみを つかう", label: "鍋つかみ" },
+            { text: "火が 消えたか たしかめる", label: "火の確認" },
+          ],
+          fail: "湯気で あつっ！",
+          reason: "湯気も あついよ。ふたを 開けるときは 顔を はなして、むこう側から 開けよう。",
+        },
+      ],
+      tip: "コンソメは 水に とけやすいので、火を 止めて 入れると 失敗しにくいよ。",
+      patterns: P[3].patterns,
+    },
+    {
+      id: "saltpepper",
+      name: "塩・こしょう",
+      step: "⑤ 味を ととのえろ！",
+      hp: 130,
+      bpm: 122,
+      window: 1.25,
+      boss: true,
+      quizzes: [
+        {
+          rhythmLabels: ["しお", "こしょう", "あじみ"],
+          question: "味を ととのえる じゅんばんは？",
+          steps: [
+            { text: "火を 止めて 小皿に 少し とって 味見", label: "あじみ" },
+            { text: "塩を ひとつまみ 入れる", label: "しお" },
+            { text: "こしょうを 少し ふる", label: "こしょう" },
+            { text: "もう一度 味見", label: "あじみ" },
+          ],
+          fail: "しょっぱくて 食べられない！",
+          reason: "塩は 少しずつ。入れすぎると 戻せないよ。味見は 小皿で、熱い スープを 直接 すすらないでね。",
+        },
+      ],
+      tip: "塩の とりすぎは からだに よくないよ。うすめに つくって、足すのが コツ。",
+      patterns: P[4].patterns,
+    },
+  ],
+};
+for (const enemy of RECIPES.consomme.enemies) enemy.quiz = enemy.quizzes[0];
+RECIPES.pancake.dish = "ホットケーキ";
+
 export const DEFAULT_RECIPE = RECIPES.pancake;
 
 // 1つめの問題を、これまでどおり quiz という名前でも見られるようにする(リズムの名前・チュートリアルが つかう)

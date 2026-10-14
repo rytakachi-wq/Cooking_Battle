@@ -14,8 +14,7 @@
       <h1 class="title logo-title"><img class="logo" src="../assets/ui/title_logo.png" alt="チョ～集中！チョット調理ジャン！～チャッ！🔥カリッ！🍳パリッ！～"></h1>
       <img class="hero" src="../assets/chars/hero_normal.png" alt="見習い料理人">
       <div class="menu">
-        <button id="btn-start" class="btn btn-main" type="button">はじめから</button>
-        <button id="btn-continue" class="btn btn-main" type="button" hidden>つづきから</button>
+        <button id="btn-choose" class="btn btn-main" type="button">りょうりを えらぶ</button>
         <button id="btn-tutorial" class="btn btn-sub" type="button">あそびかた</button>
       </div>
       <div class="menu menu-sub">
@@ -81,6 +80,11 @@
     </section>
 
   </main>
+  <dialog id="dlg-recipe" class="dialog" aria-labelledby="dlg-recipe-title">
+    <p id="dlg-recipe-title" class="dlg-title">りょうりを えらぼう</p>
+    <div id="recipe-cards" class="recipe-cards"></div>
+    <button id="btn-recipe-close" class="btn btn-sub btn-small" type="button">もどる</button>
+  </dialog>
   <dialog id="dlg-sound" class="dialog" aria-labelledby="dlg-sound-title">
     <p id="dlg-sound-title" class="dlg-title">せってい</p>
     <div class="vols">
