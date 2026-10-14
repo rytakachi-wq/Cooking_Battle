@@ -50,6 +50,14 @@ const POSES = {
   enemy: ["normal", "attack", "damage", "down"],
 };
 const DISH_DRAW_SCALE = 0.875; // 料理・しっぱいの 絵は 2ばいの 大きさ。station.js の DISH_SCALE と おなじ
+// 手順(場面, 正しい順の 番号)→ 主人公の 動きの 絵(なければ これまでの 動き)
+const HERO_ART = {
+  egg: [null, "crack_open", "crack_drop", "crack_drop"],
+  milk: [null, null, "pour", "fridge"],
+  mix: ["mix_egg", "mix_egg", "mix_powder", "mix_fold"],
+  butter: ["pan_heat", "pan_pour", "flip", "plate"],
+  syrup: ["fire_off", "plate", "syrup"],
+};
 const FAIL_ART = { egg: "fail_shells", milk: "fail_milk", mix: "fail_lumps", butter: "fail_burnt", syrup: "fail_syrup" };
 // 敵の 絵の 倍率。新しい 絵(牛乳・ミックス・バター・シロップ)は 2ばいの 解像度なので 0.5。卵の 通常は 古い 絵なので 1.6
 const SCALE = { hero: 0.82, egg: 1.6, milk: 0.5, mix: 0.5, butter: 0.5, syrup: 0.5, onion: 0.5, carrot: 0.5, cabbage: 0.5, consomme: 0.5, saltpepper: 0.5 };
@@ -78,6 +86,7 @@ async function loadImages() {
   };
   for (const name of ["dish_bowl_empty", "dish_bowl_egg", "dish_bowl_milk", "dish_bowl_batter", "dish_pan_raw", "dish_pan_golden", "dish_plate_pancake", "dish_plate_syrup"]) addFile(name, `dish/${name}.png`);
   for (const name of ["fail_shells", "fail_milk", "fail_lumps", "fail_burnt", "fail_syrup"]) addFile(name, `fail/${name}.png`);
+  for (const name of ["crack_drop", "crack_open", "towel", "apron", "hair", "syrup", "oops", "cheer", "listen", "think", "butter", "plate", "fire_off", "flip", "pan_pour", "pan_heat", "mix_fold", "mix_powder", "mix_egg", "fridge", "pour"]) addFile(`hero_${name}`, `chars/hero_${name}.png`);
   for (const name of ["ui_hand_open", "ui_hand_pinch", "ui_lid", "ui_stamp_fail"]) addFile(name, `ui/${name}.png`);
   add("hero", POSES.hero);
   Object.values(RECIPES).forEach((recipe) =>
@@ -297,6 +306,8 @@ function openQuiz(def, failKey, now = songTime(), left = 1) {
 function startAction(rank, now) {
   const q = run.quiz;
   run.action = { key: q.failKey, rank, from: now, variant: run.state.recipe.id === "pancake" ? q.variant ?? 0 : 1 };
+  const artName = (q.variant ?? 0) === 0 && run.state.recipe.id === "pancake" ? HERO_ART[q.failKey]?.[rank] : null;
+  run.heroArt = artName ? { name: `hero_${artName}`, from: now, until: now + ACTION_TIME + 0.15 } : null;
   run.attackAt = now; // 前に出て、手を うごかす
   setHero("attack", now, 0.45);
 }
@@ -396,6 +407,7 @@ function judgeQuiz(now) {
     run.quizInjury = 0;
   }
   if (!result.correct) run.quizInjury = (run.quizInjury ?? 0) + QUIZ_MISS_DAMAGE;
+  run.heroArt = { name: result.correct ? "hero_cheer" : "hero_oops", from: now, until: now + 1.6 };
   run.failLook = !result.correct; // まちがえた見た目は、正解するまで 次の問題にも つづく
   if (!result.correct) {
     setHero("damage", now, 1.6); // 主人公も しっぱい
@@ -1542,9 +1554,18 @@ function draw(now) {
   g.rotate(-0.1 * lunge);
   g.translate(-heroX, -395);
   const heroPose = inQuiz && r.failLook && r.heroPose === "normal" ? "damage" : r.heroPose;
-  drawSprite(`hero_${heroPose}`, heroX, 395 + (heroPose === "lose" ? 10 : 0), SCALE.hero, {
-    dy: heroPose === "normal" ? bounce : 0,
-  });
+  const ha = r.heroArt && now < r.heroArt.until && inQuiz ? images[r.heroArt.name] : null;
+  if (ha?.naturalWidth) {
+    // 動きの 絵:主人公と おなじ 高さに そろえて 足もとを 合わせる(絵には 道具や 台が ふくまれる)
+    const hn = images.hero_normal;
+    const hh = (hn?.naturalHeight ?? 288) * SCALE.hero * 1.08;
+    const hw = (ha.naturalWidth * hh) / ha.naturalHeight;
+    g.drawImage(ha, 150 - hw * 0.42, 398 - hh, hw, hh);
+  } else {
+    drawSprite(`hero_${heroPose}`, heroX, 395 + (heroPose === "lose" ? 10 : 0), SCALE.hero, {
+      dy: heroPose === "normal" ? bounce : 0,
+    });
+  }
   g.restore();
   if (!inQuiz) {
     // 敵:ひるむと白くひかり、うしろへ下がる
@@ -1574,7 +1595,7 @@ function draw(now) {
   if (inQuiz) {
     // おいた手順を、実際に やって見せる(主人公と、道具・材料の動き)
     const act = r.action;
-    if (act && now >= act.from && now - act.from <= ACTION_TIME) drawActionFx(g, act.key, act.rank, (now - act.from) / ACTION_TIME, now, act.variant);
+    if (act && now >= act.from && now - act.from <= ACTION_TIME && !(r.heroArt && now < r.heroArt.until)) drawActionFx(g, act.key, act.rank, (now - act.from) / ACTION_TIME, now, act.variant);
     drawNextEnemyMini(r, now);
     Q.draw(g, r.quiz, now);
   }

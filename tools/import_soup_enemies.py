@@ -44,7 +44,7 @@ k = S * 2 / sn.height
 save(sn, "carrot_strong_normal.png", S * 2)
 a = load(26)
 a.resize((round(a.width * k), round(a.height * k)), Image.LANCZOS).save(os.path.join(OUT, "carrot_strong_attack.png"))
-save(sn, "carrot_normal.png", N["carrot"] * 2)  # 仮
+# (人参の 通常・玉ねぎは 受け取りずみ。tools/import_new.py の 手順で 入れた)
 
 # コンソメ
 save(load(22), "consomme_normal.png", N["consomme"] * 2)
@@ -76,9 +76,6 @@ def placeholder(name, label, h, fill, outline):
     d.text((w / 2, h * 0.55), label, fill=(60, 36, 16, 255), font=font, anchor="mm")
     im.save(os.path.join(OUT, name))
 
-
-placeholder("onion_normal.png", "玉ねぎ", N["onion"] * 2, (232, 190, 110, 255), (120, 70, 30, 255))
-placeholder("onion_strong_normal.png", "玉ねぎ", S * 2, (214, 120, 70, 255), (90, 30, 20, 255))
 
 # 絵の 一覧(ゲームが 読みこむ 前に 見る)
 names = sorted(os.path.basename(p) for p in glob.glob(os.path.join(OUT, "*.png")))
