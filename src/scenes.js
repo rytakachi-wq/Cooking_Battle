@@ -3,7 +3,7 @@
 //   ミックス:ミックスの袋・ボウル・泡立て器バター:コンロ・フライパン・バター仕上げ:コンロ・お皿・シロップ
 // 絵は、コードで描く。主人公は、いつもどおり、左に出る(main.js)。
 
-import { drawStation } from "./station.js";
+import { drawStation, hasDishArt } from "./station.js";
 
 const INK = "#4a2c17";
 
@@ -243,33 +243,33 @@ function spatula(g, x, y) {
 }
 
 // key:準備(prep)、または敵のid。t:経過秒(あわや水の動き)
-export function drawQuizScene(g, key, t) {
+export function drawQuizScene(g, key, t, hideDish = false) {
   g.save();
   g.lineJoin = "round";
   if (key === "prep") {
     sink(g, t);
   } else if (key === "egg") {
-    drawStation(g, 0, 0, t, {});
+    if (!hideDish) drawStation(g, 0, 0, t, {});
     // 卵のパック
     box(g, 610, 330, 130, 50, 10, "#d9c9a6");
     [0, 1, 2].forEach((i) => egg(g, 635 + i * 40, 328));
     label(g, "卵", 675, 408);
     label(g, "ボウル", 480, 408);
   } else if (key === "milk") {
-    drawStation(g, 1, 0, t, {});
+    if (!hideDish) drawStation(g, 1, 0, t, {});
     carton(g, 650, 392, 1.1);
     cup(g, 330, 392);
     label(g, "牛乳", 650, 408);
     label(g, "計量カップ", 335, 408);
   } else if (key === "mix") {
-    drawStation(g, 2, 0, t, {});
+    if (!hideDish) drawStation(g, 2, 0, t, {});
     mixBag(g, 655, 392);
     whisk(g, 355, 392);
     label(g, "ホットケーキミックス", 655, 408);
     label(g, "泡立て器", 355, 408);
   } else if (key === "butter") {
-    stove(g, 480, 392, 260);
-    drawStation(g, 3, 0, t, {});
+    if (!hideDish && !hasDishArt(3)) stove(g, 480, 392, 260); // フライパンの 絵に コンロが ふくまれる ときは、かさねない
+    if (!hideDish) drawStation(g, 3, 0, t, {});
     butter(g, 690, 392);
     spatula(g, 330, 392);
     label(g, "バター", 690, 408);
@@ -278,7 +278,7 @@ export function drawQuizScene(g, key, t) {
     stove(g, 700, 392, 170);
     oval(g, 700, 352, 66, 17, "#2b2b30");
     box(g, 752, 343, 58, 12, 6, INK, null);
-    drawStation(g, 4, 0, t, {});
+    if (!hideDish) drawStation(g, 4, 0, t, {});
     syrupBottle(g, 340, 392);
     label(g, "シロップ", 340, 408);
     label(g, "お皿", 480, 408);

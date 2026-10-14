@@ -135,7 +135,7 @@ export function answerQuiz(state, def, items, order, failKey) {
   const correct = order.length === items.length && order.every((index, pos) => items[index].rank === pos);
   if (def.main) state.steps[failKey] = quiz.rhythmLabels ?? quiz.steps.map((item) => item.label); // リズムの名前は、1つめの問題(ほんとうの やりかた)から
   if (!correct) {
-    state.fails[failKey] = true;
+    state.fails[failKey === "prep" ? enemyOf(state).id : failKey] = true; // 準備(手洗い)の まちがいも、その敵が 強くなる
     state.wrong[failKey === "prep" ? enemyOf(state).id : failKey] = (state.wrong[failKey === "prep" ? enemyOf(state).id : failKey] ?? 0) + 1; // まちがえた 回数
     state.enemyMax = Math.round(state.enemyMax * (1 + penaltyRate(enemyOf(state))));
     state.enemyHp = state.enemyMax;

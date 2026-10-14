@@ -44,11 +44,18 @@ function putArt(g, name, alpha, dx = 0, scale = DISH_SCALE) {
   g.restore();
 }
 
+// 絵が そろって いるか(そろって いれば、コードで 描く コンロなどは かさねない)
+export function hasDishArt(stage) {
+  return !!(ready(DISH[stage].from) && ready(DISH[stage].to));
+}
+
 function stationArt(g, stage, p, t, fails) {
   const s = DISH[stage];
   const failed = fails[s.id] === true;
-  putArt(g, s.from, 1);
-  putArt(g, failed && s.failTo ? s.failTo : s.to, Math.min(1, p * 1.4));
+  // 前の 絵から 次の 絵へ 入れかわる(両方を かさねて 見せない)
+  const k = Math.min(1, p * 1.4);
+  putArt(g, s.from, 1 - k);
+  putArt(g, failed && s.failTo ? s.failTo : s.to, k);
   if (failed && s.extra && p > 0.15) putArt(g, s.extra, Math.min(1, p * 2), 105);
 }
 

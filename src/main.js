@@ -49,6 +49,7 @@ const POSES = {
   hero: ["normal", "attack", "damage", "win", "lose"],
   enemy: ["normal", "attack", "damage", "down"],
 };
+const DISH_DRAW_SCALE = 0.875; // 料理・しっぱいの 絵は 2ばいの 大きさ。station.js の DISH_SCALE と おなじ
 const FAIL_ART = { egg: "fail_shells", milk: "fail_milk", mix: "fail_lumps", butter: "fail_burnt", syrup: "fail_syrup" };
 // 敵の 絵の 倍率。新しい 絵(牛乳・ミックス・バター・シロップ)は 2ばいの 解像度なので 0.5。卵の 通常は 古い 絵なので 1.6
 const SCALE = { hero: 0.82, egg: 1.6, milk: 0.5, mix: 0.5, butter: 0.5, syrup: 0.5 };
@@ -1508,7 +1509,15 @@ function draw(now) {
   r.shown += (target - r.shown) * Math.min(1, dt * 7);
   const inQuiz = r.phase === "quiz" && r.quiz;
   if (inQuiz) {
-    drawQuizScene(g, r.quiz.failKey, now);
+    // まちがえたままの とき、しっぱい料理が 料理の かわり(ボウルなどの 絵と かさねない)
+    const failArt = r.failLook && r.failKey ? images[FAIL_ART[r.failKey]] : null;
+    const showFail = !!(failArt?.complete && failArt.naturalWidth);
+    drawQuizScene(g, r.quiz.failKey, now, showFail);
+    if (showFail) {
+      const fw = failArt.naturalWidth * DISH_DRAW_SCALE;
+      const fh = failArt.naturalHeight * DISH_DRAW_SCALE;
+      g.drawImage(failArt, STATION.x - fw / 2, STATION.y + 8 - fh, fw, fh);
+    }
   } else {
     g.save();
     g.translate(0, 24); // 注文カードと かさならないよう、料理を 少し下げる
@@ -1528,16 +1537,6 @@ function draw(now) {
     dy: heroPose === "normal" ? bounce : 0,
   });
   g.restore();
-  if (inQuiz && r.failLook && r.failKey) {
-    // 前の問題を まちがえた「しっぱい料理」を、正解するまで 次の問題にも 出しておく
-    const fimg = images[FAIL_ART[r.failKey]];
-    if (fimg?.complete && fimg.naturalWidth) {
-      const fw = fimg.naturalWidth * 0.4; // 絵は 2ばいの 大きさで 持っている
-      const fh = fimg.naturalHeight * 0.4;
-      g.drawImage(fimg, 480 - fw / 2, 374 - fh, fw, fh); // 料理(ボウル・フライパン・お皿)の 中に 入れる
-    }
-  }
-
   if (!inQuiz) {
     // 敵:ひるむと白くひかり、うしろへ下がる
     const since = now - r.hitAt;
@@ -1586,7 +1585,7 @@ function draw(now) {
   bar(24, 36, 300, 20, s.playerHp / PLAYER_HP, "#4ecb71", "みならい りょうりにん");
   bar(W - 324, 36, 300, 20, s.enemyHp / s.enemyMax, "#ff6b6b", enemy.name);
   outlined(`${s.score}`, W / 2, 44, 34, "#4a2c17");
-  const failCount = Object.keys(s.fails).length;
+  const failCount = Object.values(s.wrong).reduce((sum, n) => sum + n, 0); // まちがえた 回数
   if (failCount) outlined(`手順まちがい ×${failCount}`, 24 + 150, 82, 18, "#e8472f");
   if (s.combo >= 2 && !inQuiz) outlined(`${s.combo} COMBO`, W / 2, 80, 22, "#e8472f");
   g.font = "bold 16px sans-serif";
