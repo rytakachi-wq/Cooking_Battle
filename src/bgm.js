@@ -273,7 +273,6 @@ function cover(t0, seg, i, I) {
   }
   [0.5, 1.5, 2.5, 3.5].forEach((h) => stab(I, COVER_STABS[ci], t0 + h * beat, beat * 0.3, 0.06));
   if (ci % 4 === 0) crash(I, t0, 0.1);
-  COVER_STABS[ci].forEach((n, k) => bell(I, n + 24, t0 + beat * 3 + (k * beat) / 3, beat * 0.5, 0.04)); // きらきら
   COVER_MELODY[ci].forEach((n, s) => {
     if (n) pluck(I, n, t0 + (s * beat) / 2, beat * 0.45, 0.1);
   });
