@@ -38,52 +38,123 @@ tr:last-child td { border-bottom: 0; }
 <main>
   <header>
     <h1>画像の依頼書 最小版</h1>
-    <p>画像AIの 利用回数に 限りが あるため、<b>どうしても 要る 絵だけ</b> に しぼりました。ほかの 絵は、ゲームの中で 動きや 効果を 足して まかないます。</p>
+    <p>画像AIの 利用回数に 限りが あるため、<b>全部で 10回の 生成</b> に まとめました。ゲームの中で 絵を 描かず、<b>すべて 画像で</b> 用意します。1回で 何点も 入る「シート」で 頼み、私が 切り出して 使います。</p>
   </header>
 
   <section class="box must">
-    <div class="head">
-      <span class="big">3枚</span>
-      <p style="margin:0"><b>これだけ 作って ください</b>。今ある 絵(受け取りずみ の 食材モンスター)と <b>同じ 絵柄・同じ 顔・同じ 配色</b>で。</p>
-    </div>
-    <div class="tw" style="margin-top:12px"><table>
-      <thead><tr><th>ファイル名</th><th>内容</th></tr></thead>
-      <tbody>
-        <tr><td><code>onion_normal.png</code></td><td><b>玉ねぎ</b>(通常)。茶色い 皮の 玉ねぎ。涙が にじむ ひとみ、頭の先に 細い芽。立ち姿(正面・全身)。かわいく、少し 怒った 顔</td></tr>
-        <tr><td><code>onion_strong_normal.png</code></td><td><b>玉ねぎ</b>(強化形態)。皮が よろいのように 重なり、体が ひとまわり 大きく、両腕 ムキムキ。涙は 雨のような オーラ。武器は 丸みのある 包丁形の 剣。立ち姿</td></tr>
-        <tr><td><code>carrot_normal.png</code></td><td><b>人参</b>(通常)。オレンジ色の 人参、頭に 緑の 葉っぱ。太い まゆで にっこり、少し やる気。立ち姿(今ある 強化形態の 人参の「ふつうの 姿」)</td></tr>
-      </tbody>
-    </table></div>
-    <div class="box" style="margin-top:12px">
-      <p style="margin:0 0 4px"><b>条件(3枚とも)</b></p>
-      <ul>
-        <li><b>1枚ずつ 別ファイル</b>、PNG、<b>本当の 透明背景</b>(市松もようを 絵に しない)、<b>縦 768px 以上</b>、全身。</li>
-        <li>文字・セリフを 入れない。こわすぎない(子どもも 遊びます)。血は 使わない。</li>
-        <li>ほかの 絵と 大きさを そろえるため、<b>立ち姿は 画面の 中央・足もとまで 入れて</b>ください。</li>
-      </ul>
-    </div>
+    <h2>ぜんぶに 共通の 条件</h2>
+    <ul>
+      <li>絵柄は <b>受け取りずみの 食材モンスター・主人公と 同じ</b>(太めの やわらかい 輪郭線、かわいい デフォルメ、明るく にぎやか)。こわすぎない・血は 使わない・<b>文字は 入れない</b>。</li>
+      <li><b>本当の 透明背景</b>の PNG(市松もようを 絵に しない)。背景だけ 例外(下)。</li>
+      <li><b>シートは、1つ1つの 絵が 縦 450px 以上</b> に なる 大きさで(目安:横 2048px 以上)。<b>絵と 絵の あいだは 十分 あけて、たがいに 重ねない</b>(切り出せるように)。</li>
+      <li>シートの <b>左上から 右へ、上から 下へ</b> 順に、下の 表の 順番で 並べる。</li>
+    </ul>
   </section>
 
   <section class="box">
-    <h2>あれば うれしい(なくても 動きます)<span class="n">最大 2枚</span></h2>
+    <h2>1〜3回目:食材モンスター(1枚ずつ)<span class="n">3回</span></h2>
     <div class="tw" style="margin-top:8px"><table>
       <thead><tr><th>ファイル名</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td><code>soup_bowl_soup.png</code></td><td>完成した コンソメスープ(器に 入った、湯気の 立つ スープ。にんじん・玉ねぎ・キャベツが 見える)。横 768px くらい・透明。<span class="soft">なければ ゲームの 中で 描きます。</span></td></tr>
-        <tr><td><code>menu_soup.png</code></td><td>料理えらびの カード用の コンソメスープの 絵(正方形 512px)。<span class="soft">なければ 上の 絵を 小さく 使います。</span></td></tr>
+        <tr><td><code>onion_normal.png</code></td><td><b>玉ねぎ</b>(通常)。茶色い 皮、涙が にじむ ひとみ、頭の先に 細い芽。立ち姿(正面・全身)</td></tr>
+        <tr><td><code>onion_strong_normal.png</code></td><td><b>玉ねぎ</b>(強化形態)。皮が よろいのように 重なり、体が 大きく、両腕 ムキムキ。武器は 丸みのある 包丁形の 剣。立ち姿</td></tr>
+        <tr><td><code>carrot_normal.png</code></td><td><b>人参</b>(通常)。オレンジ色、頭に 緑の 葉っぱ、太いまゆで にっこり。立ち姿(受け取りずみの 強化形態の「ふつうの 姿」)</td></tr>
+      </tbody>
+    </table></div>
+    <p class="soft">縦 768px 以上・全身・足もとまで。</p>
+  </section>
+
+  <section class="box">
+    <h2>4回目:主人公の 作業ポーズ<span class="n">1シート・5点</span></h2>
+    <p>主人公が 手順を やって見せる ときの ポーズです。どの手順でも 使い回せる 形に します。<b>全身・右むき</b>(右の 道具に 向かう)。道具は <b>持たせない</b>(道具は 別の シートの 絵を 重ねます)。</p>
+    <div class="tw"><table>
+      <thead><tr><th>順</th><th>ファイル名</th><th>ポーズ</th><th>使う 手順</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>hero_work_cut.png</code></td><td>両手を 前で そろえ、切る・割る 動き(片手を 上げ下げ)</td><td>切る・割る・むく</td></tr>
+        <tr><td>2</td><td><code>hero_work_wash.png</code></td><td>両手を 前で こすりあわせる(洗う・ふく)</td><td>洗う・ふく・はがす</td></tr>
+        <tr><td>3</td><td><code>hero_work_pour.png</code></td><td>両手で 何かを かたむけて 注ぐ</td><td>注ぐ・入れる・かける</td></tr>
+        <tr><td>4</td><td><code>hero_work_stir.png</code></td><td>片手を 回して まぜる</td><td>混ぜる・とかす・あくを とる</td></tr>
+        <tr><td>5</td><td><code>hero_work_lift.png</code></td><td>両手で 何かを 持ち上げる(運ぶ・置く)</td><td>のせる・置く・火を止める</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="box">
+    <h2>5回目:コンソメスープの 料理の 進み<span class="n">1シート・7点</span></h2>
+    <p>調理台の 上の 「いまの 料理」。敵を 倒すほど 次の 絵へ すすみます。各 512px 以上。</p>
+    <div class="tw"><table>
+      <thead><tr><th>順</th><th>ファイル名</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>soup_board_empty.png</code></td><td>まな板だけ</td></tr>
+        <tr><td>2</td><td><code>soup_board_onion.png</code></td><td>まな板の上に 切った 玉ねぎ</td></tr>
+        <tr><td>3</td><td><code>soup_board_carrot.png</code></td><td>＋ 切った 人参</td></tr>
+        <tr><td>4</td><td><code>soup_board_cabbage.png</code></td><td>＋ ざく切りの キャベツ</td></tr>
+        <tr><td>5</td><td><code>soup_pot_water.png</code></td><td>水と 野菜の 入った 鍋</td></tr>
+        <tr><td>6</td><td><code>soup_pot_consomme.png</code></td><td>コンソメを とかした 湯気の 立つ 鍋</td></tr>
+        <tr><td>7</td><td><code>soup_bowl_soup.png</code></td><td>完成した コンソメスープ(器・塩こしょう あり・湯気)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="box">
+    <h2>6回目:しっぱいの 絵<span class="n">1シート・5点</span></h2>
+    <p>手順を まちがえた ときに 出る「しっぱいした 料理」。大きく・目立つ ように。各 512px 以上。</p>
+    <div class="tw"><table>
+      <thead><tr><th>順</th><th>ファイル名</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>fail_onion.png</code></td><td>玉ねぎが ぐちゃぐちゃに 切れて 涙が とびちる</td></tr>
+        <tr><td>2</td><td><code>fail_carrot.png</code></td><td>皮が のこって 土つきの 人参</td></tr>
+        <tr><td>3</td><td><code>fail_cabbage.png</code></td><td>ころがった キャベツ・葉に 虫食いの あと(こわくない)</td></tr>
+        <tr><td>4</td><td><code>fail_consomme.png</code></td><td>味が こすぎて まっ黒に なった スープ</td></tr>
+        <tr><td>5</td><td><code>fail_saltpepper.png</code></td><td>塩が 山もりで しょっぱすぎる スープ</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="box">
+    <h2>7回目:パンケーキの 道具・材料<span class="n">1シート・14点</span></h2>
+    <p>手順ならべの 場面の 道具と 材料。<b>顔や 手の ない ふつうの 物</b>。各 450px 以上、4列。</p>
+    <div class="tw"><table>
+      <thead><tr><th>順</th><th>ファイル名</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>1〜4</td><td><code>prop_egg_pack</code> <code>prop_carton</code> <code>prop_cup</code> <code>prop_mixbag</code></td><td>卵のパック(卵3つ)／牛乳パック／計量カップ／ホットケーキミックスの袋</td></tr>
+        <tr><td>5〜8</td><td><code>prop_whisk</code> <code>prop_butter</code> <code>prop_spatula</code> <code>prop_stove_pan</code></td><td>泡立て器／バターの かたまり／フライ返し／コンロの上の フライパン</td></tr>
+        <tr><td>9〜12</td><td><code>prop_syrup</code> <code>prop_sink</code> <code>prop_soap</code> <code>prop_towel</code></td><td>メープルシロップの びん／洗面台(じゃ口)／せっけんの ポンプ／タオル</td></tr>
+        <tr><td>13〜14</td><td><code>prop_fridge</code> <code>prop_plate</code></td><td>冷蔵庫(ドアが 少し 開いた)／お皿</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="box">
+    <h2>8回目:コンソメスープの 道具・材料<span class="n">1シート・14点</span></h2>
+    <div class="tw"><table>
+      <thead><tr><th>順</th><th>ファイル名</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>1〜4</td><td><code>sprop_onion</code> <code>sprop_carrot</code> <code>sprop_cabbage</code> <code>sprop_board</code></td><td>玉ねぎ(皮つき)／人参(葉つき)／キャベツ(丸ごと)／まな板</td></tr>
+        <tr><td>5〜8</td><td><code>sprop_knife</code> <code>sprop_peeler</code> <code>sprop_colander</code> <code>sprop_pot</code></td><td>包丁(刃は 丸み・横向き)／ピーラー／ざる／ふたつきの 鍋</td></tr>
+        <tr><td>9〜12</td><td><code>sprop_ladle</code> <code>sprop_mitts</code> <code>sprop_consomme_box</code> <code>sprop_dish</code></td><td>おたま／鍋つかみ／コンソメの 箱／小皿</td></tr>
+        <tr><td>13〜14</td><td><code>sprop_salt</code> <code>sprop_pepper</code></td><td>塩びん／こしょうびん(顔のない ふつうの びん)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="box">
+    <h2>9〜10回目:背景(1枚ずつ)<span class="n">2回</span></h2>
+    <p>すべての 手順の 場面で <b>使い回します</b>。<b>1920×1080(16:9)・キャラも 道具も 描かない</b>。構図:左 約30% は 空けて(主人公が 立つ)、上 約15% は 体力ゲージの 場所、中央の 上は カードの 場所。調理台の 線は 上から 約70% の 高さ。</p>
+    <div class="tw"><table>
+      <thead><tr><th>ファイル名</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>bg_kitchen.png</code></td><td>明るい 台所。かべ・カウンターだけ(戦いと、ほとんどの 場面の 背景)</td></tr>
+        <tr><td><code>bg_sink.png</code></td><td>洗面台の 場所(じゃ口と 流しだけ・道具なし)。手を 洗う 場面用</td></tr>
       </tbody>
     </table></div>
   </section>
 
   <section class="box">
     <h2>作らなくて よいもの</h2>
-    <p>次の ものは、ゲームの中で 動きや 効果を 足して まかなうので、画像は いりません。</p>
     <ul>
-      <li><b>敵の「こうげき・ダメージ・倒れた」の ポーズ</b>:通常の 絵を つかい、前に 出る・白く ひかる・ゆれる・ころがる 動きで 表します(今の ゲームでも ひるむ ときは 白く ひかります)。</li>
-      <li><b>受け取りずみの 敵</b>(シロップ・バター・牛乳・ミックス・卵・キャベツ・コンソメ・塩こしょう・人参の 強化形態): <b>今ある 絵を つかいます</b>。</li>
-      <li><b>主人公の 調理の動き</b>(40枚):今ある 5つの ポーズと、ゲームの中の 道具・動きの 表現で まかないます。</li>
-      <li><b>背景・料理の 進み(スープ)・しっぱいの 絵(スープ)</b>:ゲームの中で 描きます。</li>
-      <li><b>パンケーキの 画像</b>:今ある 絵を そのまま つかいます。</li>
+      <li><b>敵の「こうげき・ダメージ・倒れた」</b>:通常の 絵を そのまま 前へ 出す・白く ひからせる・ゆらす・ころがす 動きで 表します(新しく 描き足しは しません)。</li>
+      <li>受け取りずみの 敵の 絵(シロップ・バター・牛乳・ミックス・卵・キャベツ・コンソメ・塩こしょう・人参の 強化形態)と、パンケーキの 料理・しっぱいの 絵:今ある 絵を 使います。</li>
     </ul>
   </section>
 </main>
