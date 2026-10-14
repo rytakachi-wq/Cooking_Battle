@@ -17,7 +17,10 @@ DISH_S = [("soup_board_empty", "まな板だけ"), ("soup_board_onion", "切っ�
 FAIL = [("fail_shells", "卵:殻が ちらばる"), ("fail_milk", "牛乳:こぼれて ひろがる"), ("fail_lumps", "ミックス:ダマと 粉"), ("fail_burnt", "バター:まっ黒に こげる"), ("fail_syrup", "シロップ:とびちって ベタベタ"), ("fail_onion", "玉ねぎ:ぐちゃぐちゃ・涙"), ("fail_carrot", "人参:皮・土が のこる"), ("fail_cabbage", "キャベツ:ころがる・虫食い(こわくない)"), ("fail_consomme", "コンソメ:こすぎて まっ黒"), ("fail_saltpepper", "塩・こしょう:塩の 山")]
 PROP_P = [("prop_egg_pack", "卵のパック(卵3つ)"), ("prop_carton", "牛乳パック"), ("prop_cup", "計量カップ"), ("prop_mixbag", "ホットケーキミックスの袋"), ("prop_whisk", "泡立て器"), ("prop_butter", "バターの かたまり"), ("prop_spatula", "フライ返し"), ("prop_stove_pan", "コンロの上の フライパン"), ("prop_syrup", "メープルシロップの びん"), ("prop_sink", "洗面台(じゃ口)"), ("prop_soap", "せっけんの ポンプ"), ("prop_towel", "タオル"), ("prop_fridge", "冷蔵庫(ドアが 少し 開いた)"), ("prop_plate", "お皿")]
 PROP_S = [("sprop_onion", "玉ねぎ(皮つき)"), ("sprop_carrot", "人参(葉つき)"), ("sprop_cabbage", "キャベツ(丸ごと)"), ("sprop_board", "まな板"), ("sprop_knife", "包丁(刃は 丸み・横向き)"), ("sprop_peeler", "ピーラー"), ("sprop_colander", "ざる"), ("sprop_pot", "ふたつきの 鍋"), ("sprop_ladle", "おたま"), ("sprop_mitts", "鍋つかみ"), ("sprop_consomme_box", "コンソメの 箱"), ("sprop_dish", "小皿"), ("sprop_salt", "塩びん(顔なし)"), ("sprop_pepper", "こしょうびん(顔なし)")]
-HERO = [("hero_normal", "通常"), ("hero_attack", "こうげき"), ("hero_damage", "ダメージ"), ("hero_win", "勝ち"), ("hero_lose", "負け")]
+HERO = [("hero_normal", "通常"), ("hero_attack", "こうげき"), ("hero_damage", "ダメージ"), ("hero_win", "勝ち"), ("hero_lose", "負け"),
+        ("hero_cut", "包丁を 持って 切る 動き(包丁だけ。まな板・野菜は 描かない)"), ("hero_whisk", "泡立て器を 持って 混ぜる 動き(泡立て器だけ)"),
+        ("hero_pan", "フライパンと フライ返しを 持つ(道具だけ。コンロ・料理は 描かない)"), ("hero_carton", "牛乳パックを かたむけて 注ぐ 動き(パックだけ)"),
+        ("hero_ladle", "おたまを 持つ(おたまだけ。鍋は 描かない)"), ("hero_cheer", "ガッツポーズ(正解のとき・何も 持たない)"), ("hero_oops", "頭を かかえる(まちがいのとき・何も 持たない)")]
 UI = [("title_logo", "タイトルロゴ(文字 あり・横長)"), ("ui_stamp_fail", "「しっぱい」スタンプ(文字 あり)"), ("ui_hand_open", "ひらいた手"), ("ui_hand_pinch", "つまむ手"), ("ui_lid", "鍋のふた")]
 
 
@@ -35,7 +38,7 @@ def c(n):
 n_en = len(ENEMIES) * 8
 tot = len(HERO) + n_en + len(DISH_P) + len(DISH_S) + len(FAIL) + 1 + len(UI) + len(PROP_P) + len(PROP_S)
 sec = []
-sec.append(("主人公", len(HERO), "縦 768px 以上・全身・右を むく", tbl([(c(a), b) for a, b in HERO])))
+sec.append(("主人公", len(HERO), "縦 768px 以上・全身・右を むく。道具を 持つ 絵は 道具だけ(台・材料・背景は 描かない)", tbl([(c(a), b) for a, b in HERO])))
 en_rows = []
 for k, name, dish in ENEMIES:
     en_rows.append((f"<b>{e(name)}</b><small>{dish}</small>", " ".join(c(f"{k}_{p}") for p in POSES), " ".join(c(f"{k}_strong_{p}") for p in POSES)))
